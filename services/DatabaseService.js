@@ -23,4 +23,9 @@ class DatabaseService {
 
 }
 
+<<<<<<< HEAD
 export default new DatabaseService()
+=======
+export default new DatabaseService()
+
+>>>>>>> 3fbf709 (Basic RoomModel class)
