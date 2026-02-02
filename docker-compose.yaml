@@ -17,12 +17,12 @@ services:
   backend:
     container_name: softwareengineering-backend
     build:
-      context: ./src 
-      dockerfile: Dockerfile.dev 
+      context: .
+      dockerfile: Dockerfile.dev
     environment:
       - HOKIDAR_USEPOLLING=true
     volumes:
-      - ./src:/app
+      - ./:/app
       - /app/node_modules
     ports:
       - "4444:4444/udp"
