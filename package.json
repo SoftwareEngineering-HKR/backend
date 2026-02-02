@@ -9,7 +9,8 @@
 	"scripts": {
 		"start": "node --env-file=.env ./src/index.js",
 		"dev": "npx nodemon --env-file=.env ./src/index.js",
-		"lint": "eslint . --fix"
+		"lint": "eslint . --fix",
+		"prepare": "husky"
 	},
 	"lint-staged": {
 		"**/*.{js,jsx,ts,tsx}": "eslint --fix"
