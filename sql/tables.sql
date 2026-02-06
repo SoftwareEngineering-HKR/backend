@@ -21,5 +21,6 @@ CREATE TABLE Scale (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     id_device UUID NOT NULL REFERENCES Device(id),
     value NUMERIC NOT NULL,
-    max_value NUMERIC NOT NULL
+    max_value NUMERIC NOT NULL,
+    name VARCHAR(20) NOT NULL
 );
