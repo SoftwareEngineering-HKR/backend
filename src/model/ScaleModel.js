@@ -1,5 +1,5 @@
 //Imports goes here
-import dbs from '../services/DatabaseService.js'
+import dbs from '../service/DatabaseService.js'
 /**
 * Model for the scale
 * 
