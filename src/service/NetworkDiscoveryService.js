@@ -1,27 +1,46 @@
 import dgram from "dgram";
+import EventEmitter from "events";
+
+/**
+ * @typedef {Object} DiscoveredDevice
+ * @property {string} ipAddress
+ * @property {string} mac
+ * @property {string} desc
+ */
+
+/**
+ * Emitted when a new device is discovered.
+ * @event NetworkDiscoveryService#deviceDiscovered
+ * @type {DiscoveredDevice[]}
+ */
 
 /**
  * Service which enables devices to be automatically discovered
- * @class NetworkDiscoveryService
+ * @class
  *
- * @property {dgram.Socket} #server - The socket object for UDP communication
+ * @extends EventEmitter
+ * @fires NetworkDiscoveryService#deviceDiscovered
  */
-export class NetworkDiscoveryService {
-	#server = dgram.createSocket("udp4");
+export class NetworkDiscoveryService extends EventEmitter {
+	/** @type {dgram.Socket} */
+	static #server = dgram.createSocket("udp4");
+	/** @type {string} */
+	static #VERSION = "1";
+	/** @type {DiscoveredDevice[]} */
+	static #discoveredDevices = [];
 
 	/**
 	 * Initialise the UDP socket and start listening
-	 * @function startNetworkDiscovery
 	 * @returns {void}
 	 */
 	startNetworkDiscovery() {
-		this.#server.on("error", (err) => this.#handleError(err));
+		NetworkDiscoveryService.#server.on("error", (err) => this.#handleError(err));
 
-		this.#server.on("message", (msg, rinfo) => this.#parseDatagram(msg, rinfo));
+		NetworkDiscoveryService.#server.on("message", (msg, rinfo) => this.#parseDatagram(msg, rinfo));
 
-		this.#server.on("listening", () => this.#startListen());
+		NetworkDiscoveryService.#server.on("listening", () => this.#startListen());
 
-		this.#server.bind(4444);
+		NetworkDiscoveryService.#server.bind(process.env.PORT || 4444);
 	}
 
 	/**
@@ -29,37 +48,59 @@ export class NetworkDiscoveryService {
 	 * @function stopNetworkDiscovery
 	 * @returns {void}
 	 */
-	stopNetworkDiscovery() {
-		this.#server.close();
-	}
+	// #stopNetworkDiscovery() {
+	// 	NetworkDiscoveryService.#server.close();
+	// }
 
-	/*
+	/**
 	 * Process the content of the message
-	 * Looks for UDP datagrams that contain "NetworkDiscovery" and reply with MQTT brokers IP
-	 * @function parseDatagram
+	 * Looks for UDP datagrams that contain "NetworkDiscovery"
 	 * @param {Buffer} msg - Content of the datagram that the socket has received
 	 * @param {dgram.RemoteInfo} rinfo - Information about the sender of the datagram
 	 * @returns {void}
 	 */
 	#parseDatagram(msg, rinfo) {
-		//TODO: implement content parsing & reply
-		console.log(`Server got: ${msg} from ${rinfo.address}:${rinfo.port}`);
+		const expectedMsg =
+			/^NetworkDiscovery;Mac=(?<mac>(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2});Desc=(?<desc>[^;]+);Ver=(?<ver>\d+)$/;
+		const message = msg.toString();
+		const datagramMatch = message.match(expectedMsg);
+
+		// console.debug("Received:", message);
+
+		// not a discovery datagram
+		if (!datagramMatch) return;
+
+		const { mac, desc, ver } = datagramMatch.groups;
+
+		if (ver !== NetworkDiscoveryService.#VERSION) return;
+
+		const device = {
+			ipAddress: rinfo.address,
+			mac,
+			desc,
+		};
+
+		const alreadyDiscovered = NetworkDiscoveryService.#discoveredDevices.some(
+			(discoveredDevice) => discoveredDevice.mac === device.mac,
+		);
+		if (alreadyDiscovered) return;
+
+		NetworkDiscoveryService.#discoveredDevices.push(device);
+		this.emit("deviceDiscovered", NetworkDiscoveryService.#discoveredDevices);
+		// console.debug("Discovered device:", device);
 	}
 
-	/*
+	/**
 	 * Start listening to the port specified in the .env
-	 * @function startListen
 	 * @returns {void}
 	 */
 	#startListen() {
-		//TODO: change port to use the .env
-		const address = this.#server.address();
+		const address = NetworkDiscoveryService.#server.address();
 		console.log(`Network discovery listening at ${address.address}:${address.port}`);
 	}
 
-	/*
+	/**
 	 * Handle potential errors of the socket
-	 * @function handleError
 	 * @param {Error} err - The error object
 	 * @returns {void}
 	 */
@@ -69,7 +110,7 @@ export class NetworkDiscoveryService {
 		 * Also idk if closing the server after an error is the best way to handle it, should prob do sth else :,)
 		 */
 		console.error(`UDP socket error: ${err.stack}`);
-		this.#server.close();
+		NetworkDiscoveryService.#server.close();
 		/* maybe restart socket or dont close it */
 	}
 }
