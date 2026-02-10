@@ -9,48 +9,88 @@ import EventEmitter from "events";
  */
 
 /**
- * Emitted when a new device is discovered.
+ * Emitted when a device is discovered
  * @event NetworkDiscoveryService#deviceDiscovered
- * @type {DiscoveredDevice[]}
+ * @param {DiscoveredDevice[]} devices - All currently discovered devices
  */
 
 /**
  * Service which enables devices to be automatically discovered
- * @class
+ *
+ * @example
+ * const discovery = new NetworkDiscoveryService();
+ * discovery.on("deviceDiscovered", devices => {
+ *   console.log("Discovered devices:", devices);
+ * });
+ * await discovery.startNetworkDiscovery();
  *
  * @extends EventEmitter
  * @fires NetworkDiscoveryService#deviceDiscovered
  */
 export class NetworkDiscoveryService extends EventEmitter {
-	/** @type {dgram.Socket} */
-	static #server = dgram.createSocket("udp4");
+	/** @type {dgram.Socket | null} */
+	static #server = null;
 	/** @type {string} */
 	static #VERSION = "1";
 	/** @type {DiscoveredDevice[]} */
 	static #discoveredDevices = [];
+	/** @type {Set<NetworkDiscoveryService>} */
+	static #activeDiscoveries = new Set();
+	/** @type {Map<NetworkDiscoveryService, Function>} */
+	static #activeRejects = new Map();
 
 	/**
 	 * Initialise the UDP socket and start listening
-	 * @returns {void}
+	 * Resolves when the discovery window has ended
+	 * Rejects if the UDP socket encounters an error
+	 * @returns {Promise<void>}
+	 * @throws {Error}
 	 */
-	startNetworkDiscovery() {
-		NetworkDiscoveryService.#server.on("error", (err) => this.#handleError(err));
+	async startNetworkDiscovery() {
+		NetworkDiscoveryService.#activeDiscoveries.add(this);
 
-		NetworkDiscoveryService.#server.on("message", (msg, rinfo) => this.#parseDatagram(msg, rinfo));
+		// console.debug("Network discovery started, active discoveries:", NetworkDiscoveryService.#activeDiscoveries.size)
 
-		NetworkDiscoveryService.#server.on("listening", () => this.#startListen());
+		if (!NetworkDiscoveryService.#server) {
+			// console.debug("Socket not initialised, creating one...");
 
-		NetworkDiscoveryService.#server.bind(process.env.PORT || 4444);
+			NetworkDiscoveryService.#server = dgram.createSocket("udp4");
+
+			NetworkDiscoveryService.#server.on("error", (err) => NetworkDiscoveryService.#handleError(err));
+			NetworkDiscoveryService.#server.on("message", (msg, rinfo) =>
+				NetworkDiscoveryService.#parseDatagram(msg, rinfo),
+			);
+			NetworkDiscoveryService.#server.on("listening", () => NetworkDiscoveryService.#startListen());
+
+			NetworkDiscoveryService.#server.bind(process.env.PORT || 4444);
+		}
+
+		// if another device discovery is currently active and has found device, notify this instance about the device
+		if (NetworkDiscoveryService.#discoveredDevices.length > 0) {
+			this.emit("deviceDiscovered", NetworkDiscoveryService.#discoveredDevices);
+		}
+
+		// let the socket discover datagrams for 10 seconds, reject the promise if an error occurred
+		await new Promise((resolve, reject) => {
+			NetworkDiscoveryService.#activeRejects.set(this, reject);
+
+			setTimeout(() => {
+				NetworkDiscoveryService.#activeRejects.delete(this);
+				resolve();
+			}, 10000);
+		});
+
+		NetworkDiscoveryService.#activeDiscoveries.delete(this);
+
+		if (NetworkDiscoveryService.#activeDiscoveries.size === 0) {
+			console.debug("Closing Socket, removing cached discoveries");
+			NetworkDiscoveryService.#discoveredDevices = [];
+			NetworkDiscoveryService.#server?.close();
+			NetworkDiscoveryService.#server = null;
+		}
+
+		// console.debug("Network discovery stopped, active discoveries:", NetworkDiscoveryService.#activeDiscoveries.size)
 	}
-
-	/**
-	 * Close the socket and stop listening
-	 * @function stopNetworkDiscovery
-	 * @returns {void}
-	 */
-	// #stopNetworkDiscovery() {
-	// 	NetworkDiscoveryService.#server.close();
-	// }
 
 	/**
 	 * Process the content of the message
@@ -59,7 +99,7 @@ export class NetworkDiscoveryService extends EventEmitter {
 	 * @param {dgram.RemoteInfo} rinfo - Information about the sender of the datagram
 	 * @returns {void}
 	 */
-	#parseDatagram(msg, rinfo) {
+	static #parseDatagram(msg, rinfo) {
 		const expectedMsg =
 			/^NetworkDiscovery;Mac=(?<mac>(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2});Desc=(?<desc>[^;]+);Ver=(?<ver>\d+)$/;
 		const message = msg.toString();
@@ -86,7 +126,9 @@ export class NetworkDiscoveryService extends EventEmitter {
 		if (alreadyDiscovered) return;
 
 		NetworkDiscoveryService.#discoveredDevices.push(device);
-		this.emit("deviceDiscovered", NetworkDiscoveryService.#discoveredDevices);
+		for (const instance of NetworkDiscoveryService.#activeDiscoveries) {
+			instance.emit("deviceDiscovered", NetworkDiscoveryService.#discoveredDevices);
+		}
 		// console.debug("Discovered device:", device);
 	}
 
@@ -94,9 +136,9 @@ export class NetworkDiscoveryService extends EventEmitter {
 	 * Start listening to the port specified in the .env
 	 * @returns {void}
 	 */
-	#startListen() {
+	static #startListen() {
 		const address = NetworkDiscoveryService.#server.address();
-		console.log(`Network discovery listening at ${address.address}:${address.port}`);
+		console.debug(`Network discovery listening at ${address.address}:${address.port}`);
 	}
 
 	/**
@@ -104,13 +146,16 @@ export class NetworkDiscoveryService extends EventEmitter {
 	 * @param {Error} err - The error object
 	 * @returns {void}
 	 */
-	#handleError(err) {
-		/**
-		 * For now errors just get printed to the console, maybe log them to a file later on?
-		 * Also idk if closing the server after an error is the best way to handle it, should prob do sth else :,)
-		 */
+	static #handleError(err) {
 		console.error(`UDP socket error: ${err.stack}`);
-		NetworkDiscoveryService.#server.close();
-		/* maybe restart socket or dont close it */
+
+		// Reject all active discovery promises
+		for (const reject of NetworkDiscoveryService.#activeRejects.values()) {
+			reject(err);
+		}
+		NetworkDiscoveryService.#activeRejects.clear();
+
+		NetworkDiscoveryService.#server?.close();
+		NetworkDiscoveryService.#server = null;
 	}
 }
