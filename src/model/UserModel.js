@@ -24,9 +24,10 @@ class UserModel {
 	 * @returns {Promise<Array>} An array of users.
 	 */
 	async getAllUsers() {
-		let sql = "SELECT id, username, password FROM User";
+		let sql = "SELECT id, username FROM User";
 		const arg = [];
-		return await dbs.query(sql, arg);
+		const result = await dbs.query(sql, arg);
+		return result.rows;
 	}
 
 	/**
@@ -37,46 +38,49 @@ class UserModel {
 	 * @returns {Promise<object>} A user if it exists or false.
 	 */
 	async getUserByName(username) {
-		let sql = "SELECT id, password FROM User WHERE username = $1";
+		let sql = "SELECT id FROM User WHERE username = $1";
 		const arg = [username];
-		const row = await dbs.query(sql, arg);
-		if (!row) {
+		const result = await dbs.query(sql, arg);
+		if (result.rowCount == 0) {
 			throw new Error("No user was found");
 		}
-		return { id: row.id, username: username };
+		const row = result.rows[0];
+		return row.id;
 	}
 
 	/**
 	 * Get a specific user from the database based on the id.
 	 *
-	 * @param {number} userId - The id of the user.
+	 * @param {string} userId - The id of the user.
 	 * @throws {Error} - If no user was found.
 	 * @returns {Promise<object>} A user if it exists or false.
 	 */
 	async getUserById(userId) {
-		let sql = "SELECT username, password FROM User WHERE id = $1";
+		let sql = "SELECT username FROM User WHERE id = $1";
 		const arg = [userId];
-		const row = await dbs.query(sql, arg);
-		if (!row) {
+		const result = await dbs.query(sql, arg);
+		if (result.rowCount == 0) {
 			throw new Error("No user was found");
 		}
-		return { id: userId, username: row.username, password: row.password };
+		const row = result.rows[0];
+		return row.username;
 	}
 
 	/**
 	 * Get a the password for a user based on the id.
 	 *
-	 * @param {number} userId - The id of the user.
+	 * @param {string} id - The id of the user.
 	 * @throws {Error} - If no user was found.
 	 * @returns {Promise<string>} password for that specific user.
 	 */
-	async getUserPassword(userId) {
+	async getUserPassword(id) {
 		let sql = "SELECT password FROM User WHERE id = $1";
-		const arg = [userId];
-		const row = await dbs.query(sql, arg);
-		if (!row) {
+		const arg = [id];
+		const result = await dbs.query(sql, arg);
+		if (result.rowCount == 0) {
 			throw new Error("No user was found");
 		}
+		const row = result.rows[0];
 		return row.password;
 	}
 
@@ -89,16 +93,16 @@ class UserModel {
 	 */
 	async addUser(username, password) {
 		let sql = "INSERT INTO User (username, password) VALUES ($1, $2) RETURNING id";
-		const hashedPassword = await this.hashPassword(password);
+		const hashedPassword = await this.hashpass(password);
 		const arg = [username, hashedPassword];
 		const result = await dbs.query(sql, arg);
-		return result.id;
+		return result.rows[0].id;
 	}
 
 	/**
 	 * Update the username.
 	 *
-	 * @param {number} userId - The ID of the user to update.
+	 * @param {string} userId - The ID of the user to updat
 	 * @param {string} username - The email of the user.
 	 * @returns {Promise<boolean>} True if the update was successful, false otherwise.
 	 */
@@ -112,16 +116,20 @@ class UserModel {
 	/**
 	 * Update the password.
 	 *
-	 * @param {number} userId - The ID of the user to update.
+	 * @param {string} userId - The ID of the user to update.
 	 * @returns {Promise<boolean>} True if the update was successful, false otherwise.
 	 */
-	async updatePassword(userId, password, newPassword) {
-		const hashedPassword = this.getUserPassword(userId);
-		if (!bcrypt.compare(password, hashedPassword)) {
+	async updatePassword(userName, password, newPassword) {
+		const userId = await this.getUserByName(userName);
+		const hashedPassword = await this.getUserPassword(userId);
+		const success = await bcrypt.compare(password, hashedPassword);
+		if (!success) {
 			throw new Error("Wrong password!");
 		}
 		let sql = "UPDATE User SET password = $1 WHERE id = $2";
-		const arg = [newPassword, userId];
+		const salt = 10;
+		const newPassHash = await bcrypt.hash(newPassword, salt);
+		const arg = [newPassHash, userId];
 		const result = await dbs.query(sql, arg);
 		return result.rowCount > 0;
 	}
@@ -129,7 +137,7 @@ class UserModel {
 	/**
 	 * Delete a user from the database.
 	 *
-	 * @param {number} userId - The ID of the user to delete.
+	 * @param {string} userId - The ID of the user to delete.
 	 * @returns {Promise<boolean>} True if the deletion was successful, false otherwise.
 	 */
 	async deleteUser(userId) {
@@ -147,16 +155,16 @@ class UserModel {
 	 * @return {Promise<string>} - A JWT Token if user gets logged in successfully.
 	 */
 	async login(userName, password) {
-		const user = this.getUserByName(userName);
-		if (!user) {
+		const id = await this.getUserByName(userName);
+		const hashedPassword = await this.getUserPassword(id);
+		if (!hashedPassword) {
 			throw new Error("No user by that name found.");
 		}
-		const hashedPassword = user.password;
 		const success = await bcrypt.compare(password, hashedPassword);
 		if (!success) {
 			throw new Error("Password and Username does not match.");
 		}
-		const token = jwt.createToken(user.username);
+		const token = jwt.createToken({ id: id, user: userName });
 		return token;
 	}
 }
