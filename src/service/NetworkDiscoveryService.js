@@ -1,54 +1,25 @@
 import dgram from "dgram";
-import EventEmitter from "events";
-
-/**
- * @typedef {Object} DiscoveredDevice
- * @property {string} ipAddress
- * @property {string} mac
- * @property {string} desc
- */
-
-/**
- * Emitted when a device is discovered
- * @event NetworkDiscoveryService#deviceDiscovered
- * @param {DiscoveredDevice[]} devices - All currently discovered devices
- */
+import net from "net";
 
 /**
  * Service which enables devices to be automatically discovered
  *
  * @example
- * const discovery = new NetworkDiscoveryService();
- * discovery.on("deviceDiscovered", devices => {
- *   console.log("Discovered devices:", devices);
- * });
- * await discovery.startNetworkDiscovery();
- *
- * @extends EventEmitter
- * @fires NetworkDiscoveryService#deviceDiscovered
+ * NetworkDiscoveryService.startNetworkDiscovery();
  */
-export class NetworkDiscoveryService extends EventEmitter {
+export class NetworkDiscoveryService {
 	/** @type {dgram.Socket | null} */
 	static #server = null;
 	/** @type {string} */
 	static #VERSION = "1";
-	/** @type {DiscoveredDevice[]} */
-	static #discoveredDevices = [];
-	/** @type {Set<NetworkDiscoveryService>} */
-	static #activeDiscoveries = new Set();
-	/** @type {Map<NetworkDiscoveryService, Function>} */
-	static #activeRejects = new Map();
+	/** @type {Set<string>} */
+	static #recentIPs = new Set();
 
 	/**
-	 * Initialise the UDP socket and start listening
-	 * Resolves when the discovery window has ended
-	 * Rejects if the UDP socket encounters an error
-	 * @returns {Promise<void>}
-	 * @throws {Error}
+	 * Initialise the UDP socket and start listening to discovery packets
+	 * @returns {void}
 	 */
-	async startNetworkDiscovery() {
-		NetworkDiscoveryService.#activeDiscoveries.add(this);
-
+	static startNetworkDiscovery() {
 		// console.debug("Network discovery started, active discoveries:", NetworkDiscoveryService.#activeDiscoveries.size)
 
 		if (!NetworkDiscoveryService.#server) {
@@ -62,31 +33,7 @@ export class NetworkDiscoveryService extends EventEmitter {
 			);
 			NetworkDiscoveryService.#server.on("listening", () => NetworkDiscoveryService.#startListen());
 
-			NetworkDiscoveryService.#server.bind(process.env.PORT || 4444);
-		}
-
-		// if another device discovery is currently active and has found device, notify this instance about the device
-		if (NetworkDiscoveryService.#discoveredDevices.length > 0) {
-			this.emit("deviceDiscovered", NetworkDiscoveryService.#discoveredDevices);
-		}
-
-		// let the socket discover datagrams for 10 seconds, reject the promise if an error occurred
-		await new Promise((resolve, reject) => {
-			NetworkDiscoveryService.#activeRejects.set(this, reject);
-
-			setTimeout(() => {
-				NetworkDiscoveryService.#activeRejects.delete(this);
-				resolve();
-			}, 10000);
-		});
-
-		NetworkDiscoveryService.#activeDiscoveries.delete(this);
-
-		if (NetworkDiscoveryService.#activeDiscoveries.size === 0) {
-			console.debug("Closing Socket, removing cached discoveries");
-			NetworkDiscoveryService.#discoveredDevices = [];
-			NetworkDiscoveryService.#server?.close();
-			NetworkDiscoveryService.#server = null;
+			NetworkDiscoveryService.#server.bind(process.env.UDP_PORT || 4444, "0.0.0.0");
 		}
 
 		// console.debug("Network discovery stopped, active discoveries:", NetworkDiscoveryService.#activeDiscoveries.size)
@@ -100,36 +47,47 @@ export class NetworkDiscoveryService extends EventEmitter {
 	 * @returns {void}
 	 */
 	static #parseDatagram(msg, rinfo) {
-		const expectedMsg =
-			/^NetworkDiscovery;Mac=(?<mac>(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2});Desc=(?<desc>[^;]+);Ver=(?<ver>\d+)$/;
+		const expectedMsg = /^NetworkDiscovery;Ver=(?<ver>\d+);$/;
 		const message = msg.toString();
 		const datagramMatch = message.match(expectedMsg);
+
+		// dont respond to IPs that have been in contact with the server too recently
+		if (NetworkDiscoveryService.#recentIPs.has(rinfo.address)) return;
+
+		NetworkDiscoveryService.#recentIPs.add(rinfo.address);
+		setTimeout(() => this.#recentIPs.delete(rinfo.address), 10000);
 
 		// console.debug("Received:", message);
 
 		// not a discovery datagram
 		if (!datagramMatch) return;
 
-		const { mac, desc, ver } = datagramMatch.groups;
+		const { ver } = datagramMatch.groups;
 
 		if (ver !== NetworkDiscoveryService.#VERSION) return;
 
-		const device = {
-			ipAddress: rinfo.address,
-			mac,
-			desc,
-		};
+		// console.debug("Discovered device at IP:", rinfo.address);
 
-		const alreadyDiscovered = NetworkDiscoveryService.#discoveredDevices.some(
-			(discoveredDevice) => discoveredDevice.mac === device.mac,
-		);
-		if (alreadyDiscovered) return;
+		NetworkDiscoveryService.#respondToDiscovery(rinfo.address);
+	}
 
-		NetworkDiscoveryService.#discoveredDevices.push(device);
-		for (const instance of NetworkDiscoveryService.#activeDiscoveries) {
-			instance.emit("deviceDiscovered", NetworkDiscoveryService.#discoveredDevices);
-		}
-		// console.debug("Discovered device:", device);
+	/**
+	 * Responds to the device that send a UDP packet via TCP
+	 * @param {string} ip - IP-address of the device that send the discovery message
+	 * @returns {void}
+	 */
+	static #respondToDiscovery(ip) {
+		const tcpSocket = new net.Socket();
+
+		tcpSocket.connect(process.env.TCP_PORT || 5555, ip, () => {
+			// console.debug("Responding to ", ip);
+			tcpSocket.write("DiscoveryResponse;");
+			tcpSocket.end();
+		});
+
+		tcpSocket.on("error", (err) => {
+			console.error("Failed to send DiscoveryResponse to ", ip, err.message);
+		});
 	}
 
 	/**
@@ -149,13 +107,9 @@ export class NetworkDiscoveryService extends EventEmitter {
 	static #handleError(err) {
 		console.error(`UDP socket error: ${err.stack}`);
 
-		// Reject all active discovery promises
-		for (const reject of NetworkDiscoveryService.#activeRejects.values()) {
-			reject(err);
-		}
-		NetworkDiscoveryService.#activeRejects.clear();
-
 		NetworkDiscoveryService.#server?.close();
 		NetworkDiscoveryService.#server = null;
+
+		NetworkDiscoveryService.startNetworkDiscovery();
 	}
 }
