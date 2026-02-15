@@ -22,6 +22,7 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       - HOKIDAR_USEPOLLING=true
+    network_mode: "host"
     volumes:
       - ./:/app
       - /app/node_modules
