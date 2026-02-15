@@ -71,7 +71,7 @@ export class NetworkDiscoveryService {
 			"DiscoveryResponse;",
 			0,
 			18,
-			process.env.UDP_RESPONSE_PORT || 4445,
+			rinfo.port,
 			rinfo.address,
 		);
 	}
