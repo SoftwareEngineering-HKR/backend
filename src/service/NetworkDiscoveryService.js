@@ -1,5 +1,4 @@
 import dgram from "dgram";
-import net from "net";
 
 /**
  * Service which enables devices to be automatically discovered
@@ -41,7 +40,7 @@ export class NetworkDiscoveryService {
 
 	/**
 	 * Process the content of the message
-	 * Looks for UDP datagrams that contain "NetworkDiscovery"
+	 * Looks for UDP datagrams that contain "NetworkDiscovery" and responds to that device
 	 * @param {Buffer} msg - Content of the datagram that the socket has received
 	 * @param {dgram.RemoteInfo} rinfo - Information about the sender of the datagram
 	 * @returns {void}
@@ -68,26 +67,13 @@ export class NetworkDiscoveryService {
 
 		// console.debug("Discovered device at IP:", rinfo.address);
 
-		NetworkDiscoveryService.#respondToDiscovery(rinfo.address);
-	}
-
-	/**
-	 * Responds to the device that send a UDP packet via TCP
-	 * @param {string} ip - IP-address of the device that send the discovery message
-	 * @returns {void}
-	 */
-	static #respondToDiscovery(ip) {
-		const tcpSocket = new net.Socket();
-
-		tcpSocket.connect(process.env.TCP_PORT || 5555, ip, () => {
-			// console.debug("Responding to ", ip);
-			tcpSocket.write("DiscoveryResponse;");
-			tcpSocket.end();
-		});
-
-		tcpSocket.on("error", (err) => {
-			console.error("Failed to send DiscoveryResponse to ", ip, err.message);
-		});
+		NetworkDiscoveryService.#server.send(
+			"DiscoveryResponse;",
+			0,
+			18,
+			process.env.UDP_RESPONSE_PORT || 4445,
+			rinfo.address,
+		);
 	}
 
 	/**
