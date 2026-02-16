@@ -1,11 +1,10 @@
 //Imports goes here
-import dbs from '../service/DatabaseService.js'
+import dbs from "../service/DatabaseService.js";
 /**
-* Model for the scale
-* 
-*/
+ * Model for the scale
+ *
+ */
 class ScaleModel {
-
     /** 
     * Gets a value for that scale
     * @param {string} id - UUID to identify the scale
@@ -74,19 +73,19 @@ class ScaleModel {
         return result.rowCount > 0
     }
 
-    /** 
-    * Deletes the value for that scale
-    * @param {string} id - UUID to identify the scale
-    * @return {Promise<boolean>} - returns true if delete was successfull
-    */
 
-    async deleteValue(id){
-        const sql = 'DELETE FROM Scale WHERE id =$1'
-        const args = [id]
-        const result = await dbs.query(sql, args)
-        return result.rowCount > 0
-    }
+	/**
+	 * Deletes the value for that scale
+	 * @param {string} id - UUID to identify the scale
+	 * @return {Promise<boolean>} - returns true if delete was successfull
+	 */
+
+	async deleteValue(id) {
+		const sql = "DELETE FROM Scale WHERE id =$1";
+		const args = [id];
+		const result = await dbs.query(sql, args);
+		return result.rowCount > 0;
+	}
 }
 
-
-export default new ScaleModel()
+export default new ScaleModel();
