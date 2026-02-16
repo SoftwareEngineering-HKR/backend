@@ -22,5 +22,6 @@ CREATE TABLE Scale (
     id_device UUID NOT NULL REFERENCES Device(id),
     value NUMERIC NOT NULL,
     max_value NUMERIC NOT NULL,
+    min_value NUMERIC NOT NULL,
     name VARCHAR(20) NOT NULL
 );
