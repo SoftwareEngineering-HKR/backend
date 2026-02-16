@@ -1,5 +1,6 @@
 //Imports goes here
 import dbs from '../service/DatabaseService.js'
+import scale from '../model/ScaleModel.js'
 /**
 * Model for the device table
 * 
@@ -67,11 +68,14 @@ class DeviceModel {
     * @param {string} ip - tip of the divice
     * @param {string} name - the name of the device
     * @param {string} description - the description of the device
+    * @param {string} value - value for the initial scale
+    * @param {string} max - max value for the scale
     * @return {Promise<string>} - returns id for the device
     * @throws {Error} - If it was not possible to add a device
     */
     
-    async setDevice(id_room, ip, name, description){
+    async setDevice(id_room, ip, name, description, value, max){
+        
         let sql = 'INSERT INTO Device (id_room, ip, name, description) VALUES ($1, $2, $3, $4) RETURNING id'
         const args = [id_room, ip, name, description]
         const result = await dbs.query(sql, args)
@@ -79,6 +83,7 @@ class DeviceModel {
         if(!row){
             throw new Error('Error adding the new device.')
         }
+        scale.setValue(row.id, value, max)
         return row.id
     }
 
@@ -108,6 +113,20 @@ class DeviceModel {
         const args = [id]
         const result = await dbs.query(sql, args)
         return result.rowCount > 0
+    }
+    /** 
+    * Updates the the device's scale
+    * @param {string} id - UUID to identify the scale
+    * @param {number} value - value of the new device scale setting
+    * @return {Promise<boolean>} - returns true if update was successfull
+    * @throws {Error} - if update was not successfull
+    */
+    async updateValue(id, value){
+        const success = scale.updateValue(id, value);
+        if(!success){
+            throw new Error("Could not set a new value.")
+        }
+        return success
     }
 }
 
