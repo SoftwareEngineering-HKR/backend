@@ -70,11 +70,12 @@ class DeviceModel {
     * @param {string} description - the description of the device
     * @param {string} value - value for the initial scale
     * @param {string} max - max value for the scale
+    * @param {string} min - min value for the scale
     * @return {Promise<string>} - returns id for the device
     * @throws {Error} - If it was not possible to add a device
     */
     
-    async setDevice(id_room, ip, name, description, value, max){
+    async setDevice(id_room, ip, name, description, value, max, min){
         
         let sql = 'INSERT INTO Device (id_room, ip, name, description) VALUES ($1, $2, $3, $4) RETURNING id'
         const args = [id_room, ip, name, description]
@@ -83,7 +84,7 @@ class DeviceModel {
         if(!row){
             throw new Error('Error adding the new device.')
         }
-        scale.setValue(row.id, value, max)
+        scale.setValue(row.id, value, max, min)
         return row.id
     }
 
