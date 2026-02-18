@@ -51,7 +51,7 @@ class RoomModel {
     * @return {Promise<boolean>} - returns true if update was successfull
     */
 
-    async uodateRoom(id, name){
+    async updateRoom(id, name){
         const sql = 'UPDATE Room SET name = $1 WHERE id = $2'
         const args = [name, id]
         const result = await dbs.query(sql, args)
