@@ -8,46 +8,14 @@ export class MqttBrokerService {
 	start() {
 		const server = net.createServer((socket) => {
 			console.debug("Client connected");
+			socket._buffers = [];
+			socket._bufferedBytes = 0;
 
 			socket.on("data", (data) => {
-				console.debug(`Received: ${data.toString()}`);
-
-				if (data.length < 2) socket.end();
-
-				const packetType = data[0] >> 4;
-				// const flags = data[0] << 4;
-				const remainingLength = data[1];
-
-				this.#logPacketType(packetType);
-
-				switch (packetType) {
-					case 1:
-						if (remainingLength < 11) {
-							socket.end();
-							break;
-						}
-						this.#handleConnect(socket, data.subarray(2, 2 + remainingLength));
-						break;
-
-					case 3:
-						this.#handlePublish();
-						break;
-
-					case 8:
-						this.#handleSubscribe();
-						break;
-
-					case 14:
-						this.#handeDisconnect();
-						break;
-
-					default:
-						console.debug("Closing socket, as MQTT packet type did not match");
-						socket.end();
-						break;
-				}
+				socket._buffers.push(data);
+				socket._bufferedBytes += data.length;
+				this.#processBuffer(socket);
 			});
-
 			socket.on("end", () => {
 				console.debug("Closing socket.");
 			});
@@ -67,12 +35,85 @@ export class MqttBrokerService {
 	}
 
 	/**
+	 * Gets the incoming data of the TCP socket.
+	 * Checks if full MQTT packet has arrived and processes the content of it.
+	 * @param {net.Socket} socket - The socket object where a MQTT client is bound to
+	 * @returns {void}
+	 */
+	#processBuffer(socket) {
+		while (true) {
+			//TODO: prevent socket waiting for huge datasizes
+			if (socket._bufferedBytes < 2) return; // no header
+
+			const buffer = Buffer.concat(socket._buffers, socket._bufferedBytes);
+			const res = this.#getRemainingLength(buffer);
+			if (!res) return;
+
+			const { remainingLength, bytesUsed } = res;
+			const fixedHeaderLength = 1 + bytesUsed;
+			const totalPacketLength = fixedHeaderLength + remainingLength;
+
+			if (socket._bufferedBytes < totalPacketLength) return;
+
+			const packet = buffer.subarray(0, totalPacketLength);
+			this.#handlePacket(socket, packet[0] >> 4, packet.subarray(fixedHeaderLength));
+
+			// remove MQTT packet from buffer
+			let bytesToRemove = totalPacketLength;
+			while (bytesToRemove > 0 && socket._buffers.length > 0) {
+				const socketBuffer = socket._buffers[0];
+				if (socketBuffer.length <= bytesToRemove) {
+					bytesToRemove -= socketBuffer.length;
+					socket._buffers.shift();
+				} else {
+					socket._buffers[0] = socketBuffer.subarray(bytesToRemove);
+					bytesToRemove = 0;
+				}
+			}
+			socket._bufferedBytes -= totalPacketLength;
+		}
+	}
+
+	/**
+	 * Handle the different MQTT message types
+	 * @param {net.Socket} socket - The socket object where the client is bound to
+	 * @param {number} packetType - The identifier that shows what the content of the message is
+	 * @param {Buffer<ArrayBuffer>} payload - The payload of the MQTT message
+	 * @returns {void}
+	 */
+	#handlePacket(socket, packetType, payload) {
+		this.#logPacketType(packetType);
+
+		switch (packetType) {
+			case 1:
+				this.#handleConnect(socket, payload);
+				break;
+
+			case 3:
+				this.#handlePublish(socket, payload);
+				break;
+
+			case 8:
+				this.#handleSubscribe(socket, payload);
+				break;
+
+			case 14:
+				this.#handleDisconnect(socket);
+				break;
+
+			default:
+				socket.end();
+		}
+	}
+
+	/**
 	 * Check if all the received data matches the needed MQTT protocol
 	 * @param {net.Socket} socket - Socket that holds the connection information to the MQTT client
 	 * @param {Buffer<ArrayBufferLike>} packet - Variable header + payload of the MQTT packet
 	 * @returns {void}
 	 */
 	#handleConnect(socket, packet) {
+		//TODO: dynamically parse the packet
 		const protocolNameLength = (packet[0] << 8) + packet[1];
 		const protocolName = packet.subarray(2, 2 + protocolNameLength).toString();
 		const protocolVersion = packet[6]; // 4 == 3.1.1
@@ -85,6 +126,7 @@ export class MqttBrokerService {
 			);
 			// TODO: send connectack with error code
 			socket.end();
+			return;
 		}
 
 		const payload = packet.subarray(10, packet.length);
@@ -111,7 +153,33 @@ export class MqttBrokerService {
 		console.debug(clientId, packet);
 	}
 
-	#handeDisconnect() {}
+	#handleDisconnect() {}
+
+	/**
+	 * Helper function that returns the remaining MQTT packet length and the size of the length field
+	 * @param {Buffer<ArrayBuffer>} buffer - The recieved part of a MQTT message
+	 * @returns {{remainingLength: number, bytesUsed: number} | undefined}
+	 */
+	#getRemainingLength(buffer) {
+		let multiplier = 1;
+		let remainingLength = 0;
+		let bytesUsed = 0;
+		while (true) {
+			if (buffer.length <= 1 + bytesUsed) return;
+			const encodedByte = buffer[1 + bytesUsed];
+			remainingLength += (encodedByte & 127) * multiplier;
+			bytesUsed++;
+			if (bytesUsed > 4) return;
+			if ((encodedByte & 128) === 0) break; // MSB is 0
+			multiplier *= 128;
+		}
+		console.debug(`length: ${remainingLength}, bytesUsed: ${bytesUsed}, buffer size: ${buffer.length}`);
+
+		return {
+			remainingLength,
+			bytesUsed,
+		};
+	}
 
 	// for debugging :)
 	#logPacketType(identifier) {
