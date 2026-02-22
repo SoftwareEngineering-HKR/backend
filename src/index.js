@@ -1,1 +1,3 @@
-console.log("Hallo :)");
+import { NetworkDiscoveryService } from "./service/NetworkDiscoveryService.js";
+
+NetworkDiscoveryService.startNetworkDiscovery();
