@@ -16,16 +16,21 @@ services:
 
   backend:
     container_name: softwareengineering-backend
+    env_file: ".env"
     build:
       context: .
       dockerfile: Dockerfile.dev
     environment:
       - HOKIDAR_USEPOLLING=true
+    network_mode: "host"
     volumes:
       - ./:/app
       - /app/node_modules
     ports:
       - "4444:4444/udp"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata: {}
