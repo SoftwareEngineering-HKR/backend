@@ -1,6 +1,7 @@
 import net from "net";
 
 export class MqttBrokerService {
+	/** @type {Map<string, net.Socket>} */
 	#clients = new Map();
 	// #subscriptions = new Map();
 	// #sessions = new Map();
@@ -18,6 +19,7 @@ export class MqttBrokerService {
 			});
 			socket.on("end", () => {
 				console.debug("Closing socket.");
+				this.#handleDisconnect(socket);
 			});
 
 			socket.on("error", (error) => {
@@ -113,23 +115,29 @@ export class MqttBrokerService {
 	 * @returns {void}
 	 */
 	#handleConnect(socket, packet) {
-		//TODO: dynamically parse the packet
+		let offset = 0;
 		const protocolNameLength = (packet[0] << 8) + packet[1];
-		const protocolName = packet.subarray(2, 2 + protocolNameLength).toString();
-		const protocolVersion = packet[6]; // 4 == 3.1.1
+		offset += 2;
+
+		const protocolName = packet.subarray(offset, offset + protocolNameLength).toString();
+		offset += protocolNameLength;
+
+		const protocolVersion = packet[offset++]; // 4 == 3.1.1
+		offset += 3; // this skips the flags and keep alive for now
 
 		console.debug(protocolName, protocolVersion);
 
-		if (protocolName.toString() !== "MQTT" || protocolVersion !== 4) {
+		if (protocolName !== "MQTT" || protocolVersion !== 4) {
 			console.error(
 				`Expected protocol name: "MQTT", recieved: "${protocolName.toString()}"; expected protocol version: 4, recieved: ${protocolVersion}`,
 			);
-			// TODO: send connectack with error code
+			const connAck = [0x20, 0x02, 0x01, 0x01];
+			socket.write(Buffer.from(connAck));
 			socket.end();
 			return;
 		}
 
-		const payload = packet.subarray(10, packet.length);
+		const payload = packet.subarray(offset);
 		const clientNameLength = (payload[0] << 8) + payload[1];
 		const clientName = payload.subarray(2, 2 + clientNameLength).toString();
 		console.debug(clientName);
@@ -139,7 +147,7 @@ export class MqttBrokerService {
 			//TODO: handle session restoration
 			socket.write(Buffer.from(connAck));
 		} else {
-			//TODO: add client to clients map
+			this.#clients.set(clientName, socket);
 			const connAck = [0x20, 0x02, 0x00, 0x00];
 			socket.write(Buffer.from(connAck));
 		}
@@ -153,7 +161,20 @@ export class MqttBrokerService {
 		console.debug(clientId, packet);
 	}
 
-	#handleDisconnect() {}
+	/**
+	 * Make sure that when a device disconnects the brokers is updated
+	 * @param {net.Socket} socket - The socket object where the client was bound to
+	 * @returns {void}
+	 */
+	#handleDisconnect(socket) {
+		for (const [clientName, clientSocket] of this.#clients) {
+			if (clientSocket === socket) {
+				console.debug("Client removed from active devices: ", clientName);
+				this.#clients.delete(clientName);
+				break;
+			}
+		}
+	}
 
 	/**
 	 * Helper function that returns the remaining MQTT packet length and the size of the length field
@@ -187,5 +208,6 @@ export class MqttBrokerService {
 		if (identifier == 1) console.debug("CONNECT");
 		else if (identifier == 2) console.debug("CONNACK");
 		else if (identifier == 3) console.debug("PUBLISH");
+		else if (identifier == 8) console.debug("SUBSCRIBE");
 	}
 }
