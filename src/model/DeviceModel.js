@@ -1,12 +1,17 @@
 //Imports goes here
-import dbs from '../service/DatabaseService.js'
-import scale from '../model/ScaleModel.js'
+import dbs from "../service/DatabaseService.js";
+import scale from "../model/ScaleModel.js";
+import { EventEmitter } from "node:events";
 
 /**
  * Model for the device table
  *
  */
-class DeviceModel {
+class DeviceModel extends EventEmitter {
+	constructor() {
+		super();
+	}
+
 	/**
 	 * Gets all the divices
 	 * @return {Promise<string[]>} - returns the id for all the devices
@@ -59,36 +64,34 @@ class DeviceModel {
 		return row.ip;
 	}
 
+	/**
+	 * Set up a new device
+	 * @param {string} id_room - the id for the room for the the device
+	 * @param {string} ip - tip of the divice
+	 * @param {string} name - the name of the device
+	 * @param {string} description - the description of the device
+	 * @param {string} value - value for the initial scale
+	 * @param {string} max - max value for the scale
+	 * @param {string} min - max value for the scale
+	 * @return {Promise<string>} - returns id for the device
+	 * @throws {Error} - If it was not possible to add a device
+	 */
 
+	async setDevice(id_room, ip, name, description, value, max, min) {
+		let sql = "INSERT INTO Device (id_room, ip, name, description) VALUES ($1, $2, $3, $4) RETURNING id";
+		const args = [id_room, ip, name, description];
+		const result = await dbs.query(sql, args);
+		const row = result.rows[0];
+		if (!row) {
+			throw new Error("Error adding the new device.");
+		}
+		let values = await scale.setValue(row.id, value, max, min);
+		let id = row.id;
+		this.emit("newDevice", { id, values });
+		return id;
+	}
 
-
-    /** 
-    * Set up a new device
-    * @param {string} id_room - the id for the room for the the device
-    * @param {string} ip - tip of the divice
-    * @param {string} name - the name of the device
-    * @param {string} description - the description of the device
-    * @param {string} value - value for the initial scale
-    * @param {string} max - max value for the scale
-    * @param {string} min - max value for the scale
-    * @return {Promise<string>} - returns id for the device
-    * @throws {Error} - If it was not possible to add a device
-    */
-    
-    async setDevice(id_room, ip, name, description, value, max, min){
-        
-        let sql = 'INSERT INTO Device (id_room, ip, name, description) VALUES ($1, $2, $3, $4) RETURNING id'
-        const args = [id_room, ip, name, description]
-        const result = await dbs.query(sql, args)
-        const row = result.rows[0]
-        if(!row){
-            throw new Error('Error adding the new device.')
-        }
-        scale.setValue(row.id, value, max, min)
-        return row.id
-    }
-  
-  /**
+	/**
 	 * Updates the device name and description
 	 * @param {string} id - UUID to identify the device
 	 * @param {string} name - the new device name
@@ -96,39 +99,66 @@ class DeviceModel {
 	 * @return {Promise<boolean>} - returns true if update was successfull
 	 */
 
-	async updateDevice(id, name, desciption) {
-		const sql = "UPDATE Device SET name = $1, desciption = $2  WHERE id = $3";
-		const args = [name, desciption, id];
+	async updateDevice(id, name, description) {
+		const sql = "UPDATE Device SET name = $1, description = $2  WHERE id = $3";
+		const args = [name, description, id];
+		const result = await dbs.query(sql, args);
+		this.emit("updateDevice", { name, description });
+		return result.rowCount > 0;
+	}
+
+	/**
+	 * Deletes the device
+	 * @param {string} id - UUID to identify the device
+	 * @return {Promise<boolean>} - returns true if delete was successfull
+	 */
+
+	async deleteDevice(id) {
+		const sql = "DELETE FROM Device WHERE id = $1";
+		const args = [id];
 		const result = await dbs.query(sql, args);
 		return result.rowCount > 0;
 	}
 
-    /** 
-    * Deletes the device
-    * @param {string} id - UUID to identify the device
-    * @return {Promise<boolean>} - returns true if delete was successfull
-    */
+	/**
+	 * Deletes the device by room id
+	 * @param {string} id_room - UUID to identify the room
+	 * @return {Promise<boolean>} - returns true if delete was successfull
+	 */
 
-    async deleteDevice(id){
-        const sql = 'DELETE FROM Device WHERE id = $1'
-        const args = [id]
-        const result = await dbs.query(sql, args)
-        return result.rowCount > 0
-    }
-    /** 
-    * Updates the the device's scale
-    * @param {string} id - UUID to identify the scale
-    * @param {number} value - value of the new device scale setting
-    * @return {Promise<boolean>} - returns true if update was successfull
-    * @throws {Error} - if update was not successfull
-    */
-    async updateValue(id, value){
-        const success = scale.updateValue(id, value);
-        if(!success){
-            throw new Error("Could not set a new value.")
-        }
-        return success
-    }
+	async deleteDeviceRoomID(id_room) {
+		const sql = "DELETE FROM Device WHERE id_room = $1 RETURNING id";
+		const args = [id_room];
+		const result = await dbs.query(sql, args);
+		let id = result.rows[0].id;
+		this.emit("deviceDeleted", { id });
+		return result.rowCount > 0;
+	}
+	/**
+	 * Updates the the device's scale
+	 * @param {string} id - UUID to identify the scale
+	 * @param {number} value - value of the new device scale setting
+	 * @return {Promise<boolean>} - returns true if update was successfull
+	 * @throws {Error} - if update was not successfull
+	 */
+	async updateValue(id, value) {
+		let deviceID = await scale.updateValue(id, value);
+		this.emit("updateValue", { deviceID, value });
+		return;
+	}
+
+	/**
+	 * Checks if device exists
+	 * @param {string} id - UUID to identify the device
+	 * @return {Promise<boolean>} - returns true if update was successfull
+	 * @throws {Error} - if update was not successfull
+	 */
+	async checkIfDeviceExists(id) {
+		const sql = "SELECT name FROM Device WHERE id = $1";
+		const args = [id];
+		const result = await dbs.query(sql, args);
+		return result.rows > 0;
+	}
 }
 
 export default new DeviceModel();
