@@ -1,5 +1,6 @@
 //Imports goes here
 import dbs from "../service/DatabaseService.js";
+import DeviceModel from "./DeviceModel.js";
 /**
  * Model for the room
  *
@@ -64,14 +65,11 @@ class RoomModel {
 		const sql = "DELETE FROM Room WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
+		if (result.rowCount > 0) {
+			DeviceModel.deleteDeviceRoomID(id);
+		}
 		return result.rowCount > 0;
 	}
 }
 
 export default new RoomModel();
-
-/*CREATE TABLE Room (
-    id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-    name VARCHAR(50) NOT NULL
-);
-*/
