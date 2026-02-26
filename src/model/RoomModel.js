@@ -27,7 +27,7 @@ class RoomModel {
 	/**
 	 * Set the name for the room
 	 * @param {string} name - the name of the room
-	 * @return {Promise<{ id: string, name: string }>} - returns id and name for the room
+	 * @return {Promise <{id: string, name: string }>} - returns id and name for the room
 	 * @throws {Error} - If it was not possible to add a room
 	 */
 
@@ -62,13 +62,22 @@ class RoomModel {
 	 */
 
 	async deleteRoom(id) {
-		const sql = "DELETE FROM Room WHERE id = $1";
-		const args = [id];
-		const result = await dbs.query(sql, args);
-		if (result.rowCount > 0) {
-			DeviceModel.deleteDeviceRoomID(id);
+		const client = await dbs.pool.connect();
+		try {
+			await client.query("BEGIN");
+
+			const result = await DeviceModel.deleteDeviceRoomID(id, client);
+
+			await client.query("DELETE FROM Room WHERE id_room = $1", [id]);
+			await client.query("COMMIT");
+
+			return result.rowCount;
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
 		}
-		return result.rowCount > 0;
 	}
 }
 
