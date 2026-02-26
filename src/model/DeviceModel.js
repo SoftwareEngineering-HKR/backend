@@ -22,7 +22,7 @@ class DeviceModel extends EventEmitter {
 		let sql = "SELECT id FROM Device";
 		const args = [];
 		const result = await dbs.query(sql, args);
-		if (result.rows.lenght === 0) {
+		if (result.rows.length === 0) {
 			throw new Error("No devices was found.");
 		}
 		return result.rows.map((r) => r.id);
@@ -47,24 +47,6 @@ class DeviceModel extends EventEmitter {
 	}
 
 	/**
-	 * Gets the ip from a device
-	 * @param {string} id - UUID to identify the device
-	 * @return {Promise<string>} - returns the ip for that device
-	 * @throws {Error} - if no device with that id is found
-	 */
-
-	async getDeviceIp(id) {
-		let sql = "SELECT ip FROM Device WHERE id = $1";
-		const args = [id];
-		const result = await dbs.query(sql, args);
-		const row = result.rows[0];
-		if (!row) {
-			throw new Error("No device with that id was found.");
-		}
-		return row.ip;
-	}
-
-	/**
 	 * Set up a new device
 	 * @param {string} id_room - the id for the room for the the device
 	 * @param {string} ip - tip of the divice
@@ -78,17 +60,28 @@ class DeviceModel extends EventEmitter {
 	 */
 
 	async setDevice(id_room, ip, name, description, value, max, min) {
-		let sql = "INSERT INTO Device (id_room, ip, name, description) VALUES ($1, $2, $3, $4) RETURNING id";
-		const args = [id_room, ip, name, description];
-		const result = await dbs.query(sql, args);
-		const row = result.rows[0];
-		if (!row) {
-			throw new Error("Error adding the new device.");
+		const client = await dbs.pool.connect();
+		try {
+			await client.query("BEGIN");
+			const deviceResult = await client.query(
+				"INSERT INTO Device (id_room, ip, name, description)" + "VALUES ($1, $2, $3, $4) RETURNING id",
+				[id_room, ip, name, description],
+			);
+
+			const deviceID = deviceResult.rows[0].id;
+
+			const scaleResult = await scale.setValue(deviceID, value, min, max, client);
+
+			await client.query("COMMIT");
+
+			this.emit("newDevice", { deviceID, scaleResult });
+			return deviceID;
+		} catch (e) {
+			await client.query("ROLLBACK");
+			throw e;
+		} finally {
+			client.release();
 		}
-		let values = await scale.setValue(row.id, value, max, min);
-		let id = row.id;
-		this.emit("newDevice", { id, values });
-		return id;
 	}
 
 	/**
@@ -126,12 +119,14 @@ class DeviceModel extends EventEmitter {
 	 * @return {Promise<boolean>} - returns true if delete was successfull
 	 */
 
-	async deleteDeviceRoomID(id_room) {
-		const sql = "DELETE FROM Device WHERE id_room = $1 RETURNING id";
-		const args = [id_room];
-		const result = await dbs.query(sql, args);
-		let id = result.rows[0].id;
-		this.emit("deviceDeleted", { id });
+	async deleteDeviceRoomID(id_room, client = null) {
+		const waiting = client ?? dbs.pool;
+		const result = await waiting.query("DELETE FROM Device WHERE id_room = $1 RETURNING id", [id_room]);
+		if (result.rowCount > 0) {
+			for (const row of result.rows) {
+				this.emit("deviceDeleted", { id: row.id });
+			}
+		}
 		return result.rowCount > 0;
 	}
 	/**
@@ -157,7 +152,7 @@ class DeviceModel extends EventEmitter {
 		const sql = "SELECT name FROM Device WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		return result.rows > 0;
+		return result.rowCount > 0;
 	}
 }
 
