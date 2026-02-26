@@ -25,6 +25,7 @@
 	},
 	"dependencies": {
 		"bcrypt": "^6.0.0",
-		"jsonwebtoken": "^9.0.3"
+		"jsonwebtoken": "^9.0.3",
+		"ws": "^8.19.0"
 	}
 }
