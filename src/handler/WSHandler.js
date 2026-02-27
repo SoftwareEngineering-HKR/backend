@@ -123,15 +123,15 @@ const handler = new WSHandler();
  */
 export const messagehandler = async (type, payload) => {
 	const handlers = {
-		create_room: handler.create_room.bind(handler),
-		creat_device: handler.create_device.bind(handler),
-		update_device: handler.update_device.bind(handler),
-		update_room: handler.update_room.bind(handler),
-		delete_room: handler.delete_room.bind(handler),
-		delete_device: handler.delete_device.bind(handler),
-		update_value: handler.update_value.bind(handler),
-		get_devices: handler.get_device(),
-		get_room: handler.get_room.bind(handler),
+		"create room": handler.create_room.bind(handler),
+		"creat device": handler.create_device.bind(handler),
+		"update device": handler.update_device.bind(handler),
+		"update room": handler.update_room.bind(handler),
+		"delete room": handler.delete_room.bind(handler),
+		"delete device": handler.delete_device.bind(handler),
+		"update value": handler.update_value.bind(handler),
+		"get devices": handler.get_device(),
+		"get room": handler.get_room.bind(handler),
 	};
 
 	const handelfunction = handlers[type];
