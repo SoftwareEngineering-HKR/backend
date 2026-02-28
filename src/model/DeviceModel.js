@@ -19,7 +19,7 @@ class DeviceModel extends EventEmitter {
 	 */
 
 	async getDevices() {
-		let sql = "SELECT id FROM Device";
+		let sql = "SELECT id FROM devices";
 		const args = [];
 		const result = await dbs.query(sql, args);
 		if (result.rows.length === 0) {
@@ -36,7 +36,7 @@ class DeviceModel extends EventEmitter {
 	 */
 
 	async getDeviceInfo(id) {
-		let sql = "SELECT name, description FROM Device WHERE id = $1";
+		let sql = "SELECT name, description FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
 		const row = result.rows[0];
@@ -64,7 +64,7 @@ class DeviceModel extends EventEmitter {
 		try {
 			await client.query("BEGIN");
 			const deviceResult = await client.query(
-				"INSERT INTO Device (id_room, ip, name, description)" + "VALUES ($1, $2, $3, $4) RETURNING id",
+				"INSERT INTO devices (id_room, ip, name, description)" + "VALUES ($1, $2, $3, $4) RETURNING id",
 				[id_room, ip, name, description],
 			);
 
@@ -93,7 +93,7 @@ class DeviceModel extends EventEmitter {
 	 */
 
 	async updateDevice(id, name, description) {
-		const sql = "UPDATE Device SET name = $1, description = $2  WHERE id = $3";
+		const sql = "UPDATE devices SET name = $1, description = $2  WHERE id = $3";
 		const args = [name, description, id];
 		const result = await dbs.query(sql, args);
 		this.emit("updateDevice", { name, description });
@@ -107,7 +107,7 @@ class DeviceModel extends EventEmitter {
 	 */
 
 	async deleteDevice(id) {
-		const sql = "DELETE FROM Device WHERE id = $1";
+		const sql = "DELETE FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
 		return result.rowCount > 0;
@@ -121,7 +121,7 @@ class DeviceModel extends EventEmitter {
 
 	async deleteDeviceRoomID(id_room, client = null) {
 		const waiting = client ?? dbs.pool;
-		const result = await waiting.query("DELETE FROM Device WHERE id_room = $1 RETURNING id", [id_room]);
+		const result = await waiting.query("DELETE FROM devices WHERE id_room = $1 RETURNING id", [id_room]);
 		if (result.rowCount > 0) {
 			for (const row of result.rows) {
 				this.emit("deviceDeleted", { id: row.id });
@@ -149,7 +149,7 @@ class DeviceModel extends EventEmitter {
 	 * @throws {Error} - if update was not successfull
 	 */
 	async checkIfDeviceExists(id) {
-		const sql = "SELECT name FROM Device WHERE id = $1";
+		const sql = "SELECT name FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
 		return result.rowCount > 0;

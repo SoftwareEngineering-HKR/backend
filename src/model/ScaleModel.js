@@ -13,7 +13,7 @@ class ScaleModel {
 	 */
 
 	async getValue(id) {
-		let sql = "SELECT value, min_value, max_value FROM Scale WHERE id = $1";
+		let sql = "SELECT value, min_value, max_value FROM scales WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
 		const row = result.rows[0];
@@ -36,7 +36,7 @@ class ScaleModel {
 	async setValue(device_id, value, min_value, max_value, client = null) {
 		const waiting = client ?? dbs.pool;
 		const result = await waiting.query(
-			"INSERT INTO Scale (id_device, value, min_value, max_value)" +
+			"INSERT INTO scales (id_device, value, min_value, max_value)" +
 				"VALUES ($1, $2, $3, $4) RETURNING id, value, min_value, max_value",
 			[device_id, value, min_value, max_value],
 		);
@@ -58,7 +58,7 @@ class ScaleModel {
 		if (scale.max_value < value || scale.min_value > value) {
 			throw new Error("Value can not exceed max value");
 		}
-		const sql = "UPDATE Scale SET value = $1 WHERE id = $2 RETURNING id_device";
+		const sql = "UPDATE scales SET value = $1 WHERE id = $2 RETURNING id_device";
 		const args = [value, id];
 		const result = await dbs.query(sql, args);
 		if (result.rowCount === 0) {
@@ -75,7 +75,7 @@ class ScaleModel {
 	 */
 
 	async deleteValue(id) {
-		const sql = "DELETE FROM Scale WHERE id =$1";
+		const sql = "DELETE FROM scales WHERE id =$1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
 		return result.rowCount > 0;
