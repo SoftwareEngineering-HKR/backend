@@ -1,7 +1,10 @@
+CREATE TYPE type_of_user AS ENUM ('admin', 'user');
+
 CREATE TABLE Users (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     username VARCHAR(50) NOT NULL,
-    password CHAR(60) NOT NULL
+    password CHAR(60) NOT NULL,
+    type  type_of_user DEFAULT 'user'
 );
 
 CREATE TABLE Room (
