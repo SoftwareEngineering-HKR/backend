@@ -13,7 +13,7 @@ CREATE TABLE Room (
 );
 
 CREATE TABLE Device (
-    id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    id VARCHAR(17) PRIMARY KEY NOT NULL,
     id_room UUID NOT NULL REFERENCES Room(id),
     ip VARCHAR(15) NOT NULL,
     name VARCHAR(50) NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE Device (
 
 CREATE TABLE Scale (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-    id_device UUID NOT NULL REFERENCES Device(id),
+    id_device VARCHAR(17) NOT NULL REFERENCES Device(id),
     value NUMERIC NOT NULL,
     max_value NUMERIC NOT NULL,
     min_value NUMERIC NOT NULL,
