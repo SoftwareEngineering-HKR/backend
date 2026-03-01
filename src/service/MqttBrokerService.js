@@ -1,6 +1,9 @@
 import net from "net";
+// import DeviceModel from "../model/DeviceModel.js";
 
 export class MqttBrokerService {
+	/** @type {typeof DeviceModel} */
+	// #model = DeviceModel;
 	/** @type {Map<string, net.Socket>} */
 	#clients = new Map();
 	// #subscriptions = new Map();
@@ -11,6 +14,7 @@ export class MqttBrokerService {
 			console.debug("Client connected");
 			socket._buffers = [];
 			socket._bufferedBytes = 0;
+			socket._clientId = null;
 
 			socket.on("data", (data) => {
 				socket._buffers.push(data);
@@ -31,7 +35,7 @@ export class MqttBrokerService {
 			console.error(`Server Error: ${error.message}`);
 		});
 
-		server.listen(process.env.MQTT_BROKER_PORT || 1883, () => {
+		server.listen({ port: process.env.MQTT_BROKER_PORT || 1883, host: "0.0.0.0" }, () => {
 			console.log(`MQTT socker listening on port: ${process.env.MQTT_BROKER_PORT || 1883}`);
 		});
 	}
@@ -58,7 +62,7 @@ export class MqttBrokerService {
 			if (socket._bufferedBytes < totalPacketLength) return;
 
 			const packet = buffer.subarray(0, totalPacketLength);
-			this.#handlePacket(socket, packet[0] >> 4, packet.subarray(fixedHeaderLength));
+			this.#handlePacket(socket, packet[0] >> 4, packet[0] & 0x0f, packet.subarray(fixedHeaderLength));
 
 			// remove MQTT packet from buffer
 			let bytesToRemove = totalPacketLength;
@@ -80,10 +84,11 @@ export class MqttBrokerService {
 	 * Handle the different MQTT message types
 	 * @param {net.Socket} socket - The socket object where the client is bound to
 	 * @param {number} packetType - The identifier that shows what the content of the message is
+	 * @param {number} flags - Specific flags that are send with each package type
 	 * @param {Buffer<ArrayBuffer>} payload - The payload of the MQTT message
 	 * @returns {void}
 	 */
-	#handlePacket(socket, packetType, payload) {
+	#handlePacket(socket, packetType, flags, payload) {
 		this.#logPacketType(packetType);
 
 		switch (packetType) {
@@ -92,7 +97,7 @@ export class MqttBrokerService {
 				break;
 
 			case 3:
-				this.#handlePublish(socket, payload);
+				this.#handlePublish(socket, flags, payload);
 				break;
 
 			case 8:
@@ -142,6 +147,8 @@ export class MqttBrokerService {
 		const clientName = payload.subarray(2, 2 + clientNameLength).toString();
 		console.debug(clientName);
 
+		socket._clientId = clientName;
+
 		if (this.#clients.has(clientName)) {
 			const connAck = [0x20, 0x02, 0x01, 0x00];
 			//TODO: handle session restoration
@@ -153,12 +160,72 @@ export class MqttBrokerService {
 		}
 	}
 
-	#handleSubscribe(clientId, packet) {
-		console.debug(clientId, packet);
+	#handleSubscribe(socket, packet) {
+		console.debug(socket, packet);
 	}
 
-	#handlePublish(clientId, packet) {
-		console.debug(clientId, packet);
+	/**
+	 * Parse all incoming publish packages and act on the specific topics and their payload
+	 * @param {net.Socket} socket - Socket object where the client is bound to
+	 * @param {number} flags - The flags of the PUBLISH message
+	 * @param {Buffer<ArrayBufferLike>} packet - Variable header + payload of the MQTT packet
+	 */
+	async #handlePublish(socket, flags, packet) {
+		let offset = 0;
+		const topicNameLenght = (packet[0] << 8) + packet[1];
+		offset += 2;
+
+		const topicName = packet.subarray(offset, offset + topicNameLenght).toString();
+		offset += topicNameLenght;
+
+		const qosLevel = (flags >> 1) & 0x03;
+		let packageId = null;
+		if (qosLevel > 0) {
+			packageId = (packet[offset] << 8) + packet[offset + 1];
+			offset += 2;
+		}
+
+		const payloadBuffer = packet.subarray(offset);
+
+		console.debug(`Received Package ${packageId || "-"} topic: ${topicName} with payload: ${payloadBuffer}`);
+
+		if (topicName === "register") {
+			let payload;
+			try {
+				payload = JSON.parse(payloadBuffer.toString("utf8"));
+			} catch (error) {
+				console.error("Invalid JSON payload:", error);
+				return;
+			}
+
+			const clientName = socket._clientId;
+			if (
+				!clientName ||
+				typeof payload.id !== "string" ||
+				typeof payload.type !== "string" ||
+				typeof payload.maxVal !== "number" ||
+				typeof payload.sensor !== "boolean"
+			) {
+				return;
+			}
+			// try {
+			// 	if (await this.#model.checkIfDeviceExists(clientName)) return;
+			// 	console.debug("client should be added to DB");
+			// 	// TODO: change device model, maybe new table for discovered devices
+			// 	await this.#model.setDevice(null, socket.remoteAddress, null, null, null, payload.maxVal, 0)
+			// } catch (error) {
+			// 	console.error("Error trying to add device to DB:", error);
+			// 	return;
+			// }
+		}
+		if (qosLevel == 1) {
+			// console.debug("Responding with PUPACK to:", socket.remoteAddress);
+			const pubAck = Buffer.alloc(4);
+			pubAck[0] = 0x40;
+			pubAck[1] = 0x02;
+			pubAck.writeUInt16BE(packageId, 2);
+			socket.write(pubAck);
+		}
 	}
 
 	/**
@@ -167,13 +234,7 @@ export class MqttBrokerService {
 	 * @returns {void}
 	 */
 	#handleDisconnect(socket) {
-		for (const [clientName, clientSocket] of this.#clients) {
-			if (clientSocket === socket) {
-				console.debug("Client removed from active devices: ", clientName);
-				this.#clients.delete(clientName);
-				break;
-			}
-		}
+		if (socket._clientId) this.#clients.delete(socket._clientId);
 	}
 
 	/**
