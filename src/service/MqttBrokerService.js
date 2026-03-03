@@ -17,6 +17,11 @@ export class MqttBrokerService {
 			socket._clientId = null;
 
 			socket.on("data", (data) => {
+				const MAX_BUFFER_BYTES = 1024 * 1024;
+				if (socket._bufferedBytes + data.length > MAX_BUFFER_BYTES) {
+					socket.destroy(new Error("Buffer overflow"));
+					return;
+				}
 				socket._buffers.push(data);
 				socket._bufferedBytes += data.length;
 				this.#processBuffer(socket);
@@ -47,37 +52,32 @@ export class MqttBrokerService {
 	 * @returns {void}
 	 */
 	#processBuffer(socket) {
-		while (true) {
-			//TODO: prevent socket waiting for huge datasizes
-			if (socket._bufferedBytes < 2) return; // no header
+		if (socket._bufferedBytes < 2) return;
 
-			const buffer = Buffer.concat(socket._buffers, socket._bufferedBytes);
-			const res = this.#getRemainingLength(buffer);
-			if (!res) return;
+		const buffer = Buffer.concat(socket._buffers, socket._bufferedBytes);
+		let offset = 0;
+
+		while (offset < buffer.length) {
+			if (buffer.length - offset < 2) break;
+
+			const res = this.#getRemainingLength(buffer, offset);
+			if (!res) break;
 
 			const { remainingLength, bytesUsed } = res;
+			const totalPacketLength = 1 + bytesUsed + remainingLength;
+
+			if (buffer.length - offset < totalPacketLength) break;
+
 			const fixedHeaderLength = 1 + bytesUsed;
-			const totalPacketLength = fixedHeaderLength + remainingLength;
-
-			if (socket._bufferedBytes < totalPacketLength) return;
-
-			const packet = buffer.subarray(0, totalPacketLength);
+			const packet = buffer.subarray(offset, offset + totalPacketLength);
 			this.#handlePacket(socket, packet[0] >> 4, packet[0] & 0x0f, packet.subarray(fixedHeaderLength));
 
-			// remove MQTT packet from buffer
-			let bytesToRemove = totalPacketLength;
-			while (bytesToRemove > 0 && socket._buffers.length > 0) {
-				const socketBuffer = socket._buffers[0];
-				if (socketBuffer.length <= bytesToRemove) {
-					bytesToRemove -= socketBuffer.length;
-					socket._buffers.shift();
-				} else {
-					socket._buffers[0] = socketBuffer.subarray(bytesToRemove);
-					bytesToRemove = 0;
-				}
-			}
-			socket._bufferedBytes -= totalPacketLength;
+			offset += totalPacketLength;
 		}
+
+		const remaining = buffer.subarray(offset);
+		socket._buffers = remaining.length > 0 ? [remaining] : [];
+		socket._bufferedBytes = remaining.length;
 	}
 
 	/**
@@ -138,7 +138,7 @@ export class MqttBrokerService {
 			);
 			const connAck = [0x20, 0x02, 0x01, 0x01];
 			socket.write(Buffer.from(connAck));
-			socket.end();
+			socket.destroy();
 			return;
 		}
 
@@ -150,6 +150,9 @@ export class MqttBrokerService {
 		socket._clientId = clientName;
 
 		if (this.#clients.has(clientName)) {
+			const oldSocket = this.#clients.get(clientName);
+			if (!oldSocket.destroyed) oldSocket.destroy();
+			this.#clients.set(clientName, socket);
 			const connAck = [0x20, 0x02, 0x01, 0x00];
 			//TODO: handle session restoration
 			socket.write(Buffer.from(connAck));
@@ -172,11 +175,11 @@ export class MqttBrokerService {
 	 */
 	async #handlePublish(socket, flags, packet) {
 		let offset = 0;
-		const topicNameLenght = (packet[0] << 8) + packet[1];
+		const topicNameLength = (packet[0] << 8) + packet[1];
 		offset += 2;
 
-		const topicName = packet.subarray(offset, offset + topicNameLenght).toString();
-		offset += topicNameLenght;
+		const topicName = packet.subarray(offset, offset + topicNameLength).toString();
+		offset += topicNameLength;
 
 		const qosLevel = (flags >> 1) & 0x03;
 		let packageId = null;
@@ -235,6 +238,7 @@ export class MqttBrokerService {
 	 */
 	#handleDisconnect(socket) {
 		if (socket._clientId) this.#clients.delete(socket._clientId);
+		if (!socket.destroyed) socket.destroy();
 	}
 
 	/**
