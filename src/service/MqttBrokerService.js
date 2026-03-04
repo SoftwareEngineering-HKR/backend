@@ -6,6 +6,13 @@ import net from "net";
  * @property {Buffer[]} buffers - Unprocessed incoming data
  * @property {number} bufferedBytes - Total byte count across all buffers
  * @property {string | null} clientId - The MQTT clientId
+ * @property {boolean} registered - Flag which shows if the client is registerd in the DB
+ */
+
+/**
+ * @typedef {Object} Topic
+ * @property {string} topicId - The topic identifier to wich devices publish their topic to
+ * @property {string} payload - The content that the devices publish
  */
 
 export class MqttBrokerService {
@@ -16,12 +23,13 @@ export class MqttBrokerService {
 	/** @type {WeakMap<net.Socket, SocketState} */
 	#socketState = new WeakMap();
 	// #subscriptions = new Map();
-	// #sessions = new Map();
+	/** @type {Map<string, Topic} */
+	#deviceTopics = new Map();
 
 	start() {
 		const server = net.createServer((socket) => {
 			console.debug("Client connected");
-			this.#socketState.set(socket, { buffers: [], bufferedBytes: 0, clientId: null });
+			this.#socketState.set(socket, { buffers: [], bufferedBytes: 0, clientId: null, registered: false });
 
 			socket.on("data", (data) => {
 				const MAX_BUFFER_BYTES = 1024 * 1024;
@@ -35,7 +43,7 @@ export class MqttBrokerService {
 				state.bufferedBytes += data.length;
 				this.#processBuffer(socket, state);
 			});
-			socket.on("end", () => {
+			socket.on("close", () => {
 				console.debug("Closing socket.");
 				this.#handleDisconnect(socket);
 			});
@@ -119,7 +127,7 @@ export class MqttBrokerService {
 				break;
 
 			default:
-				socket.end();
+				socket.destroy();
 		}
 	}
 
@@ -202,6 +210,7 @@ export class MqttBrokerService {
 		const payloadBuffer = packet.subarray(offset);
 
 		console.debug(`Received Package ${packageId || "-"} topic: ${topicName} with payload: ${payloadBuffer}`);
+		const state = this.#socketState.get(socket);
 
 		if (topicName === "register") {
 			let payload;
@@ -212,13 +221,13 @@ export class MqttBrokerService {
 				return;
 			}
 
-			const state = this.#socketState.get(socket);
 			const clientName = state.clientId;
 			if (
 				!clientName ||
 				typeof payload.id !== "string" ||
 				typeof payload.type !== "string" ||
 				typeof payload.maxVal !== "number" ||
+				typeof payload.minVal !== "number" ||
 				typeof payload.sensor !== "boolean"
 			) {
 				return;
@@ -232,7 +241,18 @@ export class MqttBrokerService {
 			// 	console.error("Error trying to add device to DB:", error);
 			// 	return;
 			// }
+			state.registered = true;
+		} else {
+			// device should be registered and can publish messages to their topic
+			if (!state.registered || !state.clientId) {
+				console.debug("Message received from unregistered device with ID:", state.clientId);
+				socket.destroy();
+				return;
+			}
+			this.#deviceTopics.set(state.clientId, { topicId: topicName, payload: payloadBuffer.toString() });
+			// console.debug(this.#sessions);
 		}
+
 		if (qosLevel == 1) {
 			// console.debug("Responding with PUPACK to:", socket.remoteAddress);
 			const pubAck = Buffer.alloc(4);
@@ -250,9 +270,12 @@ export class MqttBrokerService {
 	 */
 	#handleDisconnect(socket) {
 		const state = this.#socketState.get(socket);
+		if (state?.clientId) {
+			this.#clients.delete(state.clientId);
 
-		if (state.clientId) this.#clients.delete(state.clientId);
-		if (!socket.destroyed) socket.destroy();
+			// cleanup all saved messages from the client
+			this.#deviceTopics.delete(state.clientId);
+		}
 	}
 
 	/**
