@@ -12,7 +12,7 @@ CREATE TABLE rooms (
     name VARCHAR(50) NOT NULL
 );
 
-CREATE TABLE devices (
+CREATE TABLE devices (  
     id VARCHAR(17) PRIMARY KEY NOT NULL,
     id_room UUID NOT NULL REFERENCES Room(id),
     ip VARCHAR(15) NOT NULL,
