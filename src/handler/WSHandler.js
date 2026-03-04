@@ -1,5 +1,5 @@
-import DeviceModel from "../model/DeviceModel";
-import RoomModel from "../model/RoomModel";
+import DeviceModel from "../model/DeviceModel.js";
+import RoomModel from "../model/RoomModel.js";
 
 export class WSHandler {
 	/**call to setDevice in model
