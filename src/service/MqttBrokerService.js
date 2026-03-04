@@ -1,30 +1,39 @@
 import net from "net";
 // import DeviceModel from "../model/DeviceModel.js";
 
+/**
+ * @typedef {Object} SocketState
+ * @property {Buffer[]} buffers - Unprocessed incoming data
+ * @property {number} bufferedBytes - Total byte count across all buffers
+ * @property {string | null} clientId - The MQTT clientId
+ */
+
 export class MqttBrokerService {
 	/** @type {typeof DeviceModel} */
 	// #model = DeviceModel;
 	/** @type {Map<string, net.Socket>} */
 	#clients = new Map();
+	/** @type {WeakMap<net.Socket, SocketState} */
+	#socketState = new WeakMap();
 	// #subscriptions = new Map();
 	// #sessions = new Map();
 
 	start() {
 		const server = net.createServer((socket) => {
 			console.debug("Client connected");
-			socket._buffers = [];
-			socket._bufferedBytes = 0;
-			socket._clientId = null;
+			this.#socketState.set(socket, { buffers: [], bufferedBytes: 0, clientId: null });
 
 			socket.on("data", (data) => {
 				const MAX_BUFFER_BYTES = 1024 * 1024;
-				if (socket._bufferedBytes + data.length > MAX_BUFFER_BYTES) {
+				const state = this.#socketState.get(socket);
+
+				if (state.bufferedBytes + data.length > MAX_BUFFER_BYTES) {
 					socket.destroy(new Error("Buffer overflow"));
 					return;
 				}
-				socket._buffers.push(data);
-				socket._bufferedBytes += data.length;
-				this.#processBuffer(socket);
+				state.buffers.push(data);
+				state.bufferedBytes += data.length;
+				this.#processBuffer(socket, state);
 			});
 			socket.on("end", () => {
 				console.debug("Closing socket.");
@@ -48,13 +57,14 @@ export class MqttBrokerService {
 	/**
 	 * Gets the incoming data of the TCP socket.
 	 * Checks if full MQTT packet has arrived and processes the content of it.
-	 * @param {net.Socket} socket - The socket object where a MQTT client is bound to
+	 * @param {net.Socket} socket - The socket where the client is bound to
+	 * @param {SocketState} state - Sockets incoming data and its ID
 	 * @returns {void}
 	 */
-	#processBuffer(socket) {
-		if (socket._bufferedBytes < 2) return;
+	#processBuffer(socket, state) {
+		if (state.bufferedBytes < 2) return;
 
-		const buffer = Buffer.concat(socket._buffers, socket._bufferedBytes);
+		const buffer = Buffer.concat(state.buffers, state.bufferedBytes);
 		let offset = 0;
 
 		while (offset < buffer.length) {
@@ -76,8 +86,8 @@ export class MqttBrokerService {
 		}
 
 		const remaining = buffer.subarray(offset);
-		socket._buffers = remaining.length > 0 ? [remaining] : [];
-		socket._bufferedBytes = remaining.length;
+		state.buffers = remaining.length > 0 ? [remaining] : [];
+		state.bufferedBytes = remaining.length;
 	}
 
 	/**
@@ -147,7 +157,8 @@ export class MqttBrokerService {
 		const clientName = payload.subarray(2, 2 + clientNameLength).toString();
 		console.debug(clientName);
 
-		socket._clientId = clientName;
+		const state = this.#socketState.get(socket);
+		state.clientId = clientName;
 
 		if (this.#clients.has(clientName)) {
 			const oldSocket = this.#clients.get(clientName);
@@ -201,7 +212,8 @@ export class MqttBrokerService {
 				return;
 			}
 
-			const clientName = socket._clientId;
+			const state = this.#socketState.get(socket);
+			const clientName = state.clientId;
 			if (
 				!clientName ||
 				typeof payload.id !== "string" ||
@@ -237,7 +249,9 @@ export class MqttBrokerService {
 	 * @returns {void}
 	 */
 	#handleDisconnect(socket) {
-		if (socket._clientId) this.#clients.delete(socket._clientId);
+		const state = this.#socketState.get(socket);
+
+		if (state.clientId) this.#clients.delete(state.clientId);
 		if (!socket.destroyed) socket.destroy();
 	}
 
