@@ -91,13 +91,10 @@ class DeviceModel extends EventEmitter {
 	 * @throws {Error} - If it was not possible to add a device
 	 */
 
-	async initDevice(ip) {
-		const sql = "INSERT INTO devices (ip)" + "VALUES ($1) RETURNING id";
-		const args = [ip];
-		const result = await dbs.query(sql, args);
-		const deviceID = result.rows[0].id;
-		this.emit("newDevice", { deviceID });
-		return deviceID;
+	async initDevice(ip, mac) {
+		const sql = "INSERT INTO devices (id, ip)" + "VALUES ($1, $2)";
+		const args = [mac, ip];
+		await dbs.query(sql, args);
 	}
 
 	/**
