@@ -1,5 +1,5 @@
 import net from "net";
-// import DeviceModel from "../model/DeviceModel.js";
+import DeviceModel from "../model/DeviceModel.js";
 
 /**
  * @typedef {Object} SocketState
@@ -17,7 +17,7 @@ import net from "net";
 
 export class MqttBrokerService {
 	/** @type {typeof DeviceModel} */
-	// #model = DeviceModel;
+	#model = DeviceModel;
 	/** @type {Map<string, net.Socket>} */
 	#clients = new Map();
 	/** @type {WeakMap<net.Socket, SocketState} */
@@ -232,15 +232,14 @@ export class MqttBrokerService {
 			) {
 				return;
 			}
-			// try {
-			// 	if (await this.#model.checkIfDeviceExists(clientName)) return;
-			// 	console.debug("client should be added to DB");
-			// 	// TODO: change device model, maybe new table for discovered devices
-			// 	await this.#model.setDevice(null, socket.remoteAddress, null, null, null, payload.maxVal, 0)
-			// } catch (error) {
-			// 	console.error("Error trying to add device to DB:", error);
-			// 	return;
-			// }
+			try {
+				if (await this.#model.checkIfDeviceExists(clientName)) return;
+				console.debug("client should be added to DB");
+				await this.#model.initDevice(socket.remoteAddress, payload.id);
+			} catch (error) {
+				console.error("Error trying to add device to DB:", error);
+				return;
+			}
 			state.registered = true;
 		} else {
 			// device should be registered and can publish messages to their topic
