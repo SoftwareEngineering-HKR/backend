@@ -14,10 +14,10 @@ CREATE TABLE rooms (
 
 CREATE TABLE devices (  
     id VARCHAR(17) PRIMARY KEY NOT NULL,
-    id_room UUID NOT NULL REFERENCES Room(id),
+    id_room UUID REFERENCES Room(id),
     ip VARCHAR(15) NOT NULL,
-    name VARCHAR(50) NOT NULL,
-    description VARCHAR(500) NOT NULL
+    name VARCHAR(50),
+    description VARCHAR(500)
 );
 
 CREATE TABLE scales (
