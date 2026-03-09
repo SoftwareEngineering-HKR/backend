@@ -14,7 +14,7 @@ class RoomModel {
 	 */
 
 	async getRoom(id) {
-		let sql = "SELECT name FROM Room WHERE id = $1";
+		let sql = "SELECT name FROM rooms WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
 		const row = result.rows[0];
@@ -32,7 +32,7 @@ class RoomModel {
 	 */
 
 	async setRoom(name) {
-		let sql = "INSERT INTO Room (name) VALUES ($1) RETURNING id, name";
+		let sql = "INSERT INTO rooms (name) VALUES ($1) RETURNING id, name";
 		const args = [name];
 		const result = await dbs.query(sql, args);
 		const row = result.rows[0];
@@ -42,19 +42,18 @@ class RoomModel {
 		return { id: row.id, name: row.name };
 	}
 
-
 	/**
 	 * Updates the room name
 	 * @param {string} id - UUID to identify the room
 	 * @param {string} name - tthe new room name
 	 * @return {Promise<boolean>} - returns true if update was successfull
 	 */
-    async updateRoom(id, name){
-        const sql = 'UPDATE Room SET name = $1 WHERE id = $2'
-        const args = [name, id]
-        const result = await dbs.query(sql, args)
-        return result.rowCount > 0
-    }
+	async updateRoom(id, name) {
+		const sql = "UPDATE rooms SET name = $1 WHERE id = $2";
+		const args = [name, id];
+		const result = await dbs.query(sql, args);
+		return result.rowCount > 0;
+	}
 
 	/**
 	 * Deletes the room
@@ -69,7 +68,7 @@ class RoomModel {
 
 			const result = await DeviceModel.deleteDeviceRoomID(id, client);
 
-			await client.query("DELETE FROM Room WHERE id_room = $1", [id]);
+			await client.query("DELETE FROM rooms WHERE id_room = $1", [id]);
 			await client.query("COMMIT");
 
 			return result.rowCount;
