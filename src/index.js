@@ -1,20 +1,51 @@
-import express from "express";
-import db from "../src/service/DatabaseService.js";
+import { NetworkDiscoveryService } from "./service/NetworkDiscoveryService.js";
+import { MqttBrokerService } from "./service/MqttBrokerService.js";
+import WebSocket, { WebSocketServer } from "ws";
+import { messagehandler } from "./handler/WSHandler.js";
+import DeviceModel from "./model/DeviceModel.js";
 
-const app = express();
+NetworkDiscoveryService.startNetworkDiscovery();
+const broker = new MqttBrokerService();
+broker.start();
 
-app.get("/", (req, res) => {
-	res.send("Hello World!");
+const PORT = process.env.PORT_WS || 8080;
+const wss = new WebSocketServer({ port: PORT });
+wss.on("listening", () => {
+	console.log("WebSocket server is running on port 8080");
 });
 
-async function dbTest() {
-	const result = await db.query("SELECT NOW()");
-	console.log("WORKS =>", result);
-}
+wss.on("connection", function connection(ws) {
+	console.log("Client connected");
 
-dbTest();
-
-(app.listen(3000),
-	() => {
-		console.log("Server running on port 3000...");
+	ws.on("message", function message(data) {
+		const mesg = JSON.parse(data);
+		messagehandler(mesg.type, mesg.payload);
 	});
+	ws.on("error", (error) => {
+		console.error("WebSocket error:", error);
+	});
+
+	DeviceModel.on("updateValue", (deviceID, value) => {
+		wss.clients.forEach(function each(client) {
+			if (client.readyState === WebSocket.OPEN) {
+				client.send(JSON.stringify({ deviceID, value }));
+			}
+		});
+	});
+
+	DeviceModel.on("newDevice", (deviceID, scaleResult) => {
+		wss.clients.forEach(function each(client) {
+			if (client.readyState === WebSocket.OPEN) {
+				client.send(JSON.stringify({ deviceID, scaleResult }));
+			}
+		});
+	});
+
+	DeviceModel.on("updateDevice", (name, description) => {
+		wss.clients.forEach(function each(client) {
+			if (client.readyState === WebSocket.OPEN) {
+				client.send(JSON.stringify({ name, description }));
+			}
+		});
+	});
+});

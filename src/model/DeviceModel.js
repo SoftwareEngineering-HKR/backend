@@ -85,6 +85,19 @@ class DeviceModel extends EventEmitter {
 	}
 
 	/**
+	 * Set up a new device
+	 * @param {string} ip - tip of the divice
+	 * @return {Promise<string>} - returns id for the device
+	 * @throws {Error} - If it was not possible to add a device
+	 */
+
+	async initDevice(ip, mac) {
+		const sql = "INSERT INTO devices (id, ip)" + "VALUES ($1, $2)";
+		const args = [mac, ip];
+		await dbs.query(sql, args);
+	}
+
+	/**
 	 * Updates the device name and description
 	 * @param {string} id - UUID to identify the device
 	 * @param {string} name - the new device name
