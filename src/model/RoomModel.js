@@ -42,6 +42,7 @@ class RoomModel {
 		return { id: row.id, name: row.name };
 	}
 
+
 	/**
 	 * Updates the room name
 	 * @param {string} id - UUID to identify the room
