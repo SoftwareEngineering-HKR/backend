@@ -1,6 +1,12 @@
+import { NetworkDiscoveryService } from "./service/NetworkDiscoveryService.js";
+import { MqttBrokerService } from "./service/MqttBrokerService.js";
 import WebSocket, { WebSocketServer } from "ws";
 import { messagehandler } from "./handler/WSHandler.js";
 import DeviceModel from "./model/DeviceModel.js";
+
+NetworkDiscoveryService.startNetworkDiscovery();
+const broker = new MqttBrokerService();
+broker.start();
 
 const PORT = process.env.PORT_WS || 8080;
 const wss = new WebSocketServer({ port: PORT });
