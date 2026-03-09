@@ -48,6 +48,7 @@ class DeviceModel extends EventEmitter {
 
 	/**
 	 * Set up a new device
+	 * @param {string} id - the id for the device
 	 * @param {string} id_room - the id for the room for the the device
 	 * @param {string} ip - tip of the divice
 	 * @param {string} name - the name of the device
@@ -59,28 +60,23 @@ class DeviceModel extends EventEmitter {
 	 * @throws {Error} - If it was not possible to add a device
 	 */
 
-	async setDevice(id_room, ip, name, description, value, max, min) {
-		const client = await dbs.pool.connect();
+	async setDevice(id, id_room, ip, name, description, value, max, min) {
 		try {
-			await client.query("BEGIN");
-			const deviceResult = await client.query(
-				"INSERT INTO devices (id_room, ip, name, description)" + "VALUES ($1, $2, $3, $4) RETURNING id",
-				[id_room, ip, name, description],
+			await dbs.query("BEGIN");
+			await dbs.query(
+				"INSERT INTO devices (id, id_room, ip, name, description)" + "VALUES ($1, $2, $3, $4, $5) RETURNING id",
+				[id, id_room, ip, name, description],
 			);
 
-			const deviceID = deviceResult.rows[0].id;
+			const scaleResult = await scale.setValue(id, value, min, max, dbs);
 
-			const scaleResult = await scale.setValue(deviceID, value, min, max, client);
+			await dbs.query("COMMIT");
 
-			await client.query("COMMIT");
-
-			this.emit("newDevice", { deviceID, scaleResult });
-			return deviceID;
+			this.emit("newDevice", { id, scaleResult });
+			return id;
 		} catch (e) {
-			await client.query("ROLLBACK");
+			await dbs.query("ROLLBACK");
 			throw e;
-		} finally {
-			client.release();
 		}
 	}
 
@@ -165,7 +161,10 @@ class DeviceModel extends EventEmitter {
 		const sql = "SELECT name FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		return result.rowCount > 0;
+		if (!result.rowCount > 0) {
+			return true;
+		}
+		return false;
 	}
 }
 

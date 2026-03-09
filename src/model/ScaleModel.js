@@ -34,14 +34,15 @@ class ScaleModel {
 	 */
 
 	async setValue(device_id, value, min_value, max_value, client = null) {
-		const waiting = client ?? dbs.pool;
-		const result = await waiting.query(
-			"INSERT INTO scales (id_device, value, min_value, max_value)" +
-				"VALUES ($1, $2, $3, $4) RETURNING id, value, min_value, max_value",
+		if (client == null) {
+			client = dbs.connect();
+		}
+		const result = await client.query(
+			"INSERT INTO scales (id_device, value, min_value, max_value)" + "VALUES ($1, $2, $3, $4) RETURNING id",
 			[device_id, value, min_value, max_value],
 		);
-		const row = result.rows[0];
-		return row;
+		console.log("Scale result", result);
+		return result.id;
 	}
 
 	/**
