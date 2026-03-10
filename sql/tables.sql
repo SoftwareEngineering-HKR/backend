@@ -30,3 +30,9 @@ CREATE TABLE scales (
     min_value NUMERIC,
     name VARCHAR(20)
 );
+
+CREATE TABLE user_devices (
+    id_user UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id_device VARCHAR(17) NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    PRIMARY KEY (id_user, id_device)
+);
