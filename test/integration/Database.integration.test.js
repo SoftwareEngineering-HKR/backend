@@ -1,4 +1,4 @@
-import dbs from "../src/service/DatabaseService.js";
+import dbs from "../../src/service/DatabaseService.js";
 
 async function runTest() {
 	try {
