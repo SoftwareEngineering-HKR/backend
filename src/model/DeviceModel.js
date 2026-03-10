@@ -50,22 +50,23 @@ class DeviceModel extends EventEmitter {
 	 * Set up a new device
 	 * @param {string} id - the id for the device
 	 * @param {string} id_room - the id for the room for the the device
-	 * @param {string} ip - tip of the divice
+	 * @param {string} device_type - type of the deivce
+	 * @param {string} ip - the ip of the device
 	 * @param {string} name - the name of the device
 	 * @param {string} description - the description of the device
 	 * @param {string} value - value for the initial scale
 	 * @param {string} max - max value for the scale
-	 * @param {string} min - max value for the scale
+	 * @param {string} min - min value for the scale
 	 * @return {Promise<string>} - returns id for the device
 	 * @throws {Error} - If it was not possible to add a device
 	 */
 
-	async setDevice(id, id_room, ip, name, description, value, max, min) {
+	async setDevice(id, id_room, type, ip, name, description, value, max, min) {
 		try {
 			await dbs.query("BEGIN");
 			await dbs.query(
-				"INSERT INTO devices (id, id_room, ip, name, description)" + "VALUES ($1, $2, $3, $4, $5) RETURNING id",
-				[id, id_room, ip, name, description],
+				"INSERT INTO devices (id, id_room, type, ip, name, description) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+				[id, id_room, type, ip, name, description],
 			);
 
 			const scaleResult = await scale.setValue(id, value, min, max, dbs);
@@ -154,14 +155,14 @@ class DeviceModel extends EventEmitter {
 	/**
 	 * Checks if device exists
 	 * @param {string} id - UUID to identify the device
-	 * @return {Promise<boolean>} - returns true if update was successfull
-	 * @throws {Error} - if update was not successfull
+	 * @return {Promise<boolean>} - returns true if device exists, else false
+	 * @throws {Error} - if query was not successfull
 	 */
 	async checkIfDeviceExists(id) {
-		const sql = "SELECT name FROM devices WHERE id = $1";
+		const sql = "SELECT ip FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		if (!result.rowCount > 0) {
+		if (result.rowCount > 0) {
 			return true;
 		}
 		return false;
