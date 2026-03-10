@@ -233,19 +233,20 @@ export class MqttBrokerService {
 				return;
 			}
 			try {
-				if (await this.#model.checkIfDeviceExists(clientName)) return;
-				console.debug("client should be added to DB");
-				// TODO: change device model, maybe new table for discovered devices
-				await this.#model.setDevice(
-					clientName,
-					null,
-					socket.remoteAddress,
-					null,
-					null,
-					null,
-					payload.maxVal,
-					0,
-				);
+				if ((await this.#model.checkIfDeviceExists(clientName)) === false) {
+					console.debug("client will be added to DB");
+					await this.#model.setDevice(
+						clientName,
+						null,
+						payload.type,
+						socket.remoteAddress,
+						null,
+						null,
+						null,
+						payload.maxVal,
+						payload.minVal,
+					);
+				}
 			} catch (error) {
 				console.error("Error trying to add device to DB:", error);
 				return;
