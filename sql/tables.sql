@@ -23,8 +23,9 @@ CREATE TABLE devices (
 CREATE TABLE scales (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     id_device VARCHAR(17) NOT NULL REFERENCES devices(id),
-    value NUMERIC NOT NULL,
-    max_value NUMERIC NOT NULL,
-    min_value NUMERIC NOT NULL,
-    name VARCHAR(20) NOT NULL
+    value NUMERIC,
+    max_value NUMERIC,
+    min_value NUMERIC,
+    name VARCHAR(20) 
+
 );
