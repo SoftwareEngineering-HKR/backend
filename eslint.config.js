@@ -6,7 +6,7 @@ const recommendedRules = js.configs.recommended.rules;
 
 export default [
 	{
-		ignores: ["node_modules/**"],
+		ignores: ["node_modules/**", "test/**"],
 	},
 	{
 		files: ["**/*.js"],
