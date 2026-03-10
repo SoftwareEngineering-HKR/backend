@@ -27,4 +27,5 @@ CREATE TABLE scales (
     max_value NUMERIC,
     min_value NUMERIC,
     name VARCHAR(20) 
+
 );
