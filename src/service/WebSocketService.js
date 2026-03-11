@@ -1,51 +1,65 @@
-import { NetworkDiscoveryService } from "./service/NetworkDiscoveryService.js";
-import { MqttBrokerService } from "./service/MqttBrokerService.js";
 import WebSocket, { WebSocketServer } from "ws";
-import { messagehandler } from "./handler/WSHandler.js";
-import DeviceModel from "./model/DeviceModel.js";
+import { messagehandler } from "../handler/WSHandler.js";
+import DeviceModel from "../model/DeviceModel.js";
+import UserDeviceModel from "../model/UserDevicesModel.js";
 
-NetworkDiscoveryService.startNetworkDiscovery();
-const broker = new MqttBrokerService();
-broker.start();
+export class WebSocketService {
+	/** @type {number} */
+	#PORT = process.env.PORT_WS || 8080;
+	/** @type {WebSocketServer} */
+	#wss = new WebSocketServer({ port: this.#PORT });
+	/** @type {typeof UserDeviceModel} */
+	#userDeviceModel = UserDeviceModel;
 
-const PORT = process.env.PORT_WS || 8080;
-const wss = new WebSocketServer({ port: PORT });
-wss.on("listening", () => {
-	console.log("WebSocket server is running on port 8080");
-});
-
-wss.on("connection", function connection(ws) {
-	console.log("Client connected");
-
-	ws.on("message", function message(data) {
-		const mesg = JSON.parse(data);
-		messagehandler(mesg.type, mesg.payload);
-	});
-	ws.on("error", (error) => {
-		console.error("WebSocket error:", error);
-	});
-
-	DeviceModel.on("updateValue", (deviceID, value) => {
-		wss.clients.forEach(function each(client) {
-			if (client.readyState === WebSocket.OPEN) {
-				client.send(JSON.stringify({ deviceID, value }));
-			}
+	/**
+	 * Start the websocket server so that the frontend can communicate with the backend
+	 * @returns {void}
+	 */
+	startWebSocket() {
+		this.#wss.on("listening", () => {
+			console.log("WebSocket server is running on port 8080");
 		});
-	});
 
-	DeviceModel.on("newDevice", (deviceID, scaleResult) => {
-		wss.clients.forEach(function each(client) {
-			if (client.readyState === WebSocket.OPEN) {
-				client.send(JSON.stringify({ deviceID, scaleResult }));
-			}
-		});
-	});
+		// TODO: this should be replaced later by parsing the UserID from the access token
+		const userId = "6a77949f-4a2d-4d17-9fc2-62c7249d1a58";
 
-	DeviceModel.on("updateDevice", (name, description) => {
-		wss.clients.forEach(function each(client) {
-			if (client.readyState === WebSocket.OPEN) {
-				client.send(JSON.stringify({ name, description }));
-			}
+		this.#wss.on("connection", async (ws) => {
+			console.log("Client connected");
+
+			const userDevices = await this.#userDeviceModel.getDevicesByUser(userId);
+			console.debug(userDevices);
+
+			ws.on("message", function message(data) {
+				const mesg = JSON.parse(data);
+				messagehandler(mesg.type, mesg.payload);
+			});
+			ws.on("error", (error) => {
+				console.error("WebSocket error:", error);
+			});
 		});
-	});
-});
+
+		DeviceModel.on("updateValue", (deviceID, value) => {
+			this.#wss.clients.forEach(function each(client) {
+				if (client.readyState === WebSocket.OPEN) {
+					client.send(JSON.stringify({ deviceID, value }));
+				}
+			});
+		});
+
+		DeviceModel.on("newDevice", (deviceID, scaleResult) => {
+			this.#wss.clients.forEach(function each(client) {
+				if (client.readyState === WebSocket.OPEN) {
+					client.send(JSON.stringify({ deviceID, scaleResult }));
+				}
+			});
+		});
+
+		DeviceModel.on("updateDevice", (name, description) => {
+			this.#wss.clients.forEach(function each(client) {
+				if (client.readyState === WebSocket.OPEN) {
+					client.send(JSON.stringify({ name, description }));
+				}
+			});
+		});
+	}
+}
