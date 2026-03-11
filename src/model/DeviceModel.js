@@ -178,7 +178,7 @@ class DeviceModel extends EventEmitter {
 		const sql = "SELECT ip FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		if (result.rowCount > 0) {
+		if (result.length > 0) {
 			return true;
 		}
 		return false;
@@ -211,7 +211,7 @@ class DeviceModel extends EventEmitter {
 			WHERE devices.id = ANY($1)
 		`;
 		const result = await dbs.query(sql, [ids]);
-		return result.rows;
+		return result;
 	}
 }
 
