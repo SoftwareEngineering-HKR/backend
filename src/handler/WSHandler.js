@@ -1,7 +1,24 @@
 import DeviceModel from "../model/DeviceModel.js";
 import RoomModel from "../model/RoomModel.js";
+import UserDeviceModel from "../model/UserDevicesModel.js";
 
 export class WSHandler {
+	/**
+	 * Get devices that the user has access to
+	 * @param {string} userID - ID of the user in question
+	 * @returns {Promise<Array<Object>>}
+	 * @throws {Error} If it was not able to call on getDevicesByUser function in UserDeviceModel
+	 */
+	async getUserDevices(userID) {
+		try {
+			const deviceIDs = await UserDeviceModel.getDevicesByUser(userID);
+			const devices = await DeviceModel.getDevicesByIDs(deviceIDs);
+			return devices;
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
 	/**call to setDevice in model
 	 * @param {JSON} data object payload from message
 	 * @throws {Error} If it was not able to call on setDevice function in DeviceModel
@@ -115,7 +132,7 @@ export class WSHandler {
 	}
 }
 
-const handler = new WSHandler();
+export const handler = new WSHandler();
 
 /**Message handeling
  * @param {JSON} type the message type

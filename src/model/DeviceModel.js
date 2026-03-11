@@ -107,7 +107,7 @@ class DeviceModel extends EventEmitter {
 		const sql = "UPDATE devices SET name = $1, description = $2  WHERE id = $3";
 		const args = [name, description, id];
 		const result = await dbs.query(sql, args);
-		this.emit("updateDevice", { name, description });
+		this.emit("updateDevice", { id, name, description });
 		return result.rowCount > 0;
 	}
 
@@ -182,6 +182,36 @@ class DeviceModel extends EventEmitter {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Gets full device info for a list of device IDs
+	 * @param {string[]} ids - list of device IDs
+	 * @return {Promise<{Object}[]>}
+	 * @throws {Error} - if query was not successfull
+	 */
+	async getDevicesByIDs(ids) {
+		if (ids.length === 0) return [];
+		const sql = `
+			SELECT
+				devices.id,
+				rooms.name AS room,
+				devices.type,
+				devices.online,
+				devices.ip,
+				devices.name,
+				devices.description,
+				scales.value,
+				scales.max_value,
+				scales.min_value,
+				scales.name AS scale_name
+			FROM devices
+			LEFT JOIN rooms ON devices.id_room = rooms.id
+			LEFT JOIN scales ON devices.id = scales.id_device
+			WHERE devices.id = ANY($1)
+		`;
+		const result = await dbs.query(sql, [ids]);
+		return result.rows;
 	}
 }
 

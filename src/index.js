@@ -7,6 +7,3 @@ const broker = new MqttBrokerService();
 broker.start();
 const webSocketService = new WebSocketService();
 webSocketService.startWebSocket();
-
-// TODO: get devices that are assigned to the user when connecting
-// TODO: notify db when devices go online / offline
