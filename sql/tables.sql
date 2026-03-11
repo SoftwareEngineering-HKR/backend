@@ -17,6 +17,7 @@ CREATE TABLE devices (
     id VARCHAR(17) PRIMARY KEY NOT NULL,
     id_room UUID REFERENCES rooms(id),
 	type type_of_device NOT NULL,
+	online boolean NOT NULL,
     ip VARCHAR(15) NOT NULL,
     name VARCHAR(50),
     description VARCHAR(500)

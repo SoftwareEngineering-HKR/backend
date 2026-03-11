@@ -50,7 +50,8 @@ class DeviceModel extends EventEmitter {
 	 * Set up a new device
 	 * @param {string} id - the id for the device
 	 * @param {string} id_room - the id for the room for the the device
-	 * @param {string} device_type - type of the deivce
+	 * @param {string} type - type of the deivce
+	 * @param {boolean} online - the online state of the device
 	 * @param {string} ip - the ip of the device
 	 * @param {string} name - the name of the device
 	 * @param {string} description - the description of the device
@@ -61,12 +62,12 @@ class DeviceModel extends EventEmitter {
 	 * @throws {Error} - If it was not possible to add a device
 	 */
 
-	async setDevice(id, id_room, type, ip, name, description, value, max, min) {
+	async setDevice(id, id_room, type, online, ip, name, description, value, max, min) {
 		try {
 			await dbs.query("BEGIN");
 			await dbs.query(
-				"INSERT INTO devices (id, id_room, type, ip, name, description) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-				[id, id_room, type, ip, name, description],
+				"INSERT INTO devices (id, id_room, type, online, ip, name, description) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+				[id, id_room, type, online, ip, name, description],
 			);
 
 			const scaleResult = await scale.setValue(id, value, min, max, dbs);
@@ -150,6 +151,21 @@ class DeviceModel extends EventEmitter {
 		let deviceID = await scale.updateValue(id, value);
 		this.emit("updateValue", { deviceID, value });
 		return;
+	}
+
+	/**
+	 * Updates the the device's online state
+	 * @param {string} id - UUID to identify the scale
+	 * @param {boolean} online - state of the device's online status
+	 * @return {Promise<boolean>} - returns true if update was successfull
+	 * @throws {Error} - if update was not successfull
+	 */
+	async updateDeviceStatus(id, online) {
+		const sql = "UPDATE devices SET online = $1 WHERE id = $2";
+		const args = [online, id];
+		const result = await dbs.query(sql, args);
+		this.emit("OnlineStateUpdate", { id, online });
+		return result.rowCount > 0;
 	}
 
 	/**

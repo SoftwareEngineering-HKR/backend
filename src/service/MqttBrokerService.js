@@ -243,6 +243,7 @@ export class MqttBrokerService {
 						clientName,
 						null,
 						payload.type,
+						true,
 						socket.remoteAddress,
 						null,
 						null,
@@ -250,6 +251,8 @@ export class MqttBrokerService {
 						payload.maxVal,
 						payload.minVal,
 					);
+				} else {
+					await this.#deviceModel.updateDeviceStatus(clientName, true);
 				}
 			} catch (error) {
 				console.error("Error trying to add device to DB:", error);
@@ -282,11 +285,12 @@ export class MqttBrokerService {
 	 * @param {net.Socket} socket - The socket object where the client was bound to
 	 * @returns {void}
 	 */
-	#handleDisconnect(socket) {
+	async #handleDisconnect(socket) {
 		const state = this.#socketState.get(socket);
 		if (state?.clientId) {
 			this.#clients.delete(state.clientId);
 
+			await this.#deviceModel.updateDeviceStatus(state.clientId, false);
 			// cleanup all saved messages from the client
 			this.#deviceTopics.delete(state.clientId);
 		}
