@@ -1,4 +1,5 @@
 CREATE TYPE type_of_user AS ENUM ('admin', 'user');
+CREATE TYPE type_of_device AS ENUM ('light');
 
 CREATE TABLE users (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
@@ -12,9 +13,11 @@ CREATE TABLE rooms (
     name VARCHAR(50) NOT NULL
 );
 
-CREATE TABLE devices (  
+CREATE TABLE devices (
     id VARCHAR(17) PRIMARY KEY NOT NULL,
     id_room UUID REFERENCES rooms(id),
+	type type_of_device NOT NULL,
+	online boolean NOT NULL,
     ip VARCHAR(15) NOT NULL,
     name VARCHAR(50),
     description VARCHAR(500)
@@ -26,5 +29,11 @@ CREATE TABLE scales (
     value NUMERIC,
     max_value NUMERIC,
     min_value NUMERIC,
-    name VARCHAR(20) 
+    name VARCHAR(20)
+);
+
+CREATE TABLE user_devices (
+    id_user UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id_device VARCHAR(17) NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    PRIMARY KEY (id_user, id_device)
 );

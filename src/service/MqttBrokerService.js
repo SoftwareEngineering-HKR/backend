@@ -17,7 +17,7 @@ import DeviceModel from "../model/DeviceModel.js";
 
 export class MqttBrokerService {
 	/** @type {typeof DeviceModel} */
-	#model = DeviceModel;
+	#deviceModel = DeviceModel;
 	/** @type {Map<string, net.Socket>} */
 	#clients = new Map();
 	/** @type {WeakMap<net.Socket, SocketState} */
@@ -26,6 +26,10 @@ export class MqttBrokerService {
 	/** @type {Map<string, Topic} */
 	#deviceTopics = new Map();
 
+	/**
+	 * Initialise the broker so that frontend clients can exchange messages with the devices.
+	 * @returns {void}
+	 */
 	start() {
 		const server = net.createServer((socket) => {
 			console.debug("Client connected");
@@ -233,19 +237,23 @@ export class MqttBrokerService {
 				return;
 			}
 			try {
-				if (await this.#model.checkIfDeviceExists(clientName)) return;
-				console.debug("client should be added to DB");
-				// TODO: change device model, maybe new table for discovered devices
-				await this.#model.setDevice(
-					clientName,
-					null,
-					socket.remoteAddress,
-					null,
-					null,
-					null,
-					payload.maxVal,
-					0,
-				);
+				if ((await this.#deviceModel.checkIfDeviceExists(clientName)) === false) {
+					console.debug("client will be added to DB");
+					await this.#deviceModel.setDevice(
+						clientName,
+						null,
+						payload.type,
+						true,
+						socket.remoteAddress,
+						null,
+						null,
+						null,
+						payload.maxVal,
+						payload.minVal,
+					);
+				} else {
+					await this.#deviceModel.updateDeviceStatus(clientName, true);
+				}
 			} catch (error) {
 				console.error("Error trying to add device to DB:", error);
 				return;
@@ -277,11 +285,12 @@ export class MqttBrokerService {
 	 * @param {net.Socket} socket - The socket object where the client was bound to
 	 * @returns {void}
 	 */
-	#handleDisconnect(socket) {
+	async #handleDisconnect(socket) {
 		const state = this.#socketState.get(socket);
 		if (state?.clientId) {
 			this.#clients.delete(state.clientId);
 
+			await this.#deviceModel.updateDeviceStatus(state.clientId, false);
 			// cleanup all saved messages from the client
 			this.#deviceTopics.delete(state.clientId);
 		}

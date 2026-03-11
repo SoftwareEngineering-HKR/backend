@@ -50,22 +50,24 @@ class DeviceModel extends EventEmitter {
 	 * Set up a new device
 	 * @param {string} id - the id for the device
 	 * @param {string} id_room - the id for the room for the the device
-	 * @param {string} ip - tip of the divice
+	 * @param {string} type - type of the deivce
+	 * @param {boolean} online - the online state of the device
+	 * @param {string} ip - the ip of the device
 	 * @param {string} name - the name of the device
 	 * @param {string} description - the description of the device
 	 * @param {string} value - value for the initial scale
 	 * @param {string} max - max value for the scale
-	 * @param {string} min - max value for the scale
+	 * @param {string} min - min value for the scale
 	 * @return {Promise<string>} - returns id for the device
 	 * @throws {Error} - If it was not possible to add a device
 	 */
 
-	async setDevice(id, id_room, ip, name, description, value, max, min) {
+	async setDevice(id, id_room, type, online, ip, name, description, value, max, min) {
 		try {
 			await dbs.query("BEGIN");
 			await dbs.query(
-				"INSERT INTO devices (id, id_room, ip, name, description)" + "VALUES ($1, $2, $3, $4, $5) RETURNING id",
-				[id, id_room, ip, name, description],
+				"INSERT INTO devices (id, id_room, type, online, ip, name, description) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+				[id, id_room, type, online, ip, name, description],
 			);
 
 			const scaleResult = await scale.setValue(id, value, min, max, dbs);
@@ -105,7 +107,7 @@ class DeviceModel extends EventEmitter {
 		const sql = "UPDATE devices SET name = $1, description = $2  WHERE id = $3";
 		const args = [name, description, id];
 		const result = await dbs.query(sql, args);
-		this.emit("updateDevice", { name, description });
+		this.emit("updateDevice", { id, name, description });
 		return result.rowCount > 0;
 	}
 
@@ -152,19 +154,64 @@ class DeviceModel extends EventEmitter {
 	}
 
 	/**
-	 * Checks if device exists
-	 * @param {string} id - UUID to identify the device
+	 * Updates the the device's online state
+	 * @param {string} id - UUID to identify the scale
+	 * @param {boolean} online - state of the device's online status
 	 * @return {Promise<boolean>} - returns true if update was successfull
 	 * @throws {Error} - if update was not successfull
 	 */
+	async updateDeviceStatus(id, online) {
+		const sql = "UPDATE devices SET online = $1 WHERE id = $2";
+		const args = [online, id];
+		const result = await dbs.query(sql, args);
+		this.emit("OnlineStateUpdate", { id, online });
+		return result.rowCount > 0;
+	}
+
+	/**
+	 * Checks if device exists
+	 * @param {string} id - UUID to identify the device
+	 * @return {Promise<boolean>} - returns true if device exists, else false
+	 * @throws {Error} - if query was not successfull
+	 */
 	async checkIfDeviceExists(id) {
-		const sql = "SELECT name FROM devices WHERE id = $1";
+		const sql = "SELECT ip FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		if (!result.rowCount > 0) {
+		if (result.rowCount > 0) {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Gets full device info for a list of device IDs
+	 * @param {string[]} ids - list of device IDs
+	 * @return {Promise<{Object}[]>}
+	 * @throws {Error} - if query was not successfull
+	 */
+	async getDevicesByIDs(ids) {
+		if (ids.length === 0) return [];
+		const sql = `
+			SELECT
+				devices.id,
+				rooms.name AS room,
+				devices.type,
+				devices.online,
+				devices.ip,
+				devices.name,
+				devices.description,
+				scales.value,
+				scales.max_value,
+				scales.min_value,
+				scales.name AS scale_name
+			FROM devices
+			LEFT JOIN rooms ON devices.id_room = rooms.id
+			LEFT JOIN scales ON devices.id = scales.id_device
+			WHERE devices.id = ANY($1)
+		`;
+		const result = await dbs.query(sql, [ids]);
+		return result.rows;
 	}
 }
 

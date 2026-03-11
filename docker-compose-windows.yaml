@@ -22,10 +22,12 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       - HOKIDAR_USEPOLLING=true
-    network_mode: "host" #remove if on windows
     volumes:
       - ./:/app
       - /app/node_modules
+    ports:
+      - "8080:8080" #websocket
+	  - "1883:1883" #mqtt
     depends_on:
       db:
         condition: service_healthy
