@@ -17,7 +17,7 @@ import DeviceModel from "../model/DeviceModel.js";
 
 export class MqttBrokerService {
 	/** @type {typeof DeviceModel} */
-	#model = DeviceModel;
+	#deviceModel = DeviceModel;
 	/** @type {Map<string, net.Socket>} */
 	#clients = new Map();
 	/** @type {WeakMap<net.Socket, SocketState} */
@@ -26,6 +26,10 @@ export class MqttBrokerService {
 	/** @type {Map<string, Topic} */
 	#deviceTopics = new Map();
 
+	/**
+	 * Initialise the broker so that frontend clients can exchange messages with the devices.
+	 * @returns {void}
+	 */
 	start() {
 		const server = net.createServer((socket) => {
 			console.debug("Client connected");
@@ -233,9 +237,9 @@ export class MqttBrokerService {
 				return;
 			}
 			try {
-				if ((await this.#model.checkIfDeviceExists(clientName)) === false) {
+				if ((await this.#deviceModel.checkIfDeviceExists(clientName)) === false) {
 					console.debug("client will be added to DB");
-					await this.#model.setDevice(
+					await this.#deviceModel.setDevice(
 						clientName,
 						null,
 						payload.type,
