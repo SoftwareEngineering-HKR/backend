@@ -11,7 +11,7 @@
 		"dev": "npx nodemon --env-file=.env ./src/index.js",
 		"lint": "eslint . --fix",
 		"prepare": "husky",
-		"test": "mocha"
+		"test": "mocha \"test/**/*.js\""
 	},
 	"lint-staged": {
 		"**/*.{js,jsx,ts,tsx}": "eslint --fix"
