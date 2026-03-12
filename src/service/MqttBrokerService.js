@@ -126,6 +126,10 @@ export class MqttBrokerService {
 				this.#handleSubscribe(socket, payload);
 				break;
 
+			case 12:
+				this.#handlePingRequest(socket);
+				break;
+
 			case 14:
 				this.#handleDisconnect(socket);
 				break;
@@ -133,6 +137,16 @@ export class MqttBrokerService {
 			default:
 				socket.destroy();
 		}
+	}
+
+	/**
+	 * Respond to a ping request
+	 * @param{net.Socket} socket - Socket that the client is bound to
+	 * @returns {void}
+	 */
+	#handlePingRequest(socket) {
+		const pingresp = [0xd0, 0x00];
+		socket.write(Buffer.from(pingresp));
 	}
 
 	/**
@@ -329,5 +343,6 @@ export class MqttBrokerService {
 		else if (identifier == 2) console.debug("CONNACK");
 		else if (identifier == 3) console.debug("PUBLISH");
 		else if (identifier == 8) console.debug("SUBSCRIBE");
+		else if (identifier == 12) console.debug("PINGREQ");
 	}
 }
