@@ -280,6 +280,10 @@ export class MqttBrokerService {
 				socket.destroy();
 				return;
 			}
+			const oldTopic = this.#deviceTopics.get(state.clientId);
+			if (oldTopic?.payload !== payloadBuffer.toString()) {
+				this.#deviceModel.updateValue(state.clientId, payloadBuffer.toString());
+			}
 			this.#deviceTopics.set(state.clientId, { topicId: topicName, payload: payloadBuffer.toString() });
 			// console.debug(this.#sessions);
 		}
