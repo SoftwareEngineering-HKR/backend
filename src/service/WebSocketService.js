@@ -26,7 +26,10 @@ export class WebSocketService {
 			console.log("Client connected");
 
 			// send list of devices that the user has access to when a frontend connects
-			const devices = await handler.getUserDevices(userId);
+			const devices = await handler.getUserDevices(userId).catch((e) => {
+				console.error("Failed to get devices for user:", e);
+				return [];
+			});
 			for (const device of devices) {
 				if (!this.#deviceClients.has(device.id)) {
 					this.#deviceClients.set(device.id, new Set());
@@ -66,7 +69,7 @@ export class WebSocketService {
 		});
 
 		DeviceModel.on("updateDevice", ({ id, name, description }) => {
-			this.#sendDeviceMessageToFrontend(id, "updateDeviceDescription", (name, description));
+			this.#sendDeviceMessageToFrontend(id, "updateDeviceDescription", { name, description });
 		});
 
 		DeviceModel.on("OnlineStateUpdate", ({ id, online }) => {

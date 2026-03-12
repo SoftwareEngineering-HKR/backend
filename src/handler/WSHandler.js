@@ -10,13 +10,9 @@ export class WSHandler {
 	 * @throws {Error} If it was not able to call on getDevicesByUser function in UserDeviceModel
 	 */
 	async getUserDevices(userID) {
-		try {
-			const deviceIDs = await UserDeviceModel.getDevicesByUser(userID);
-			const devices = await DeviceModel.getDevicesByIDs(deviceIDs);
-			return devices;
-		} catch (e) {
-			console.error(e);
-		}
+		const deviceIDs = await UserDeviceModel.getDevicesByUser(userID);
+		const devices = await DeviceModel.getDevicesByIDs(deviceIDs);
+		return devices;
 	}
 
 	/**call to setDevice in model
