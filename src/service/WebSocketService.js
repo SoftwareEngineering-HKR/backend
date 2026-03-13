@@ -28,7 +28,7 @@ export class WebSocketService {
 
 			ws.on("message", function message(data) {
 				const mesg = JSON.parse(data);
-				messagehandler(mesg.type, mesg.payload);
+				messagehandler(mesg.type, mesg.payload, userId);
 			});
 
 			ws.on("error", (error) => {
@@ -46,19 +46,19 @@ export class WebSocketService {
 		//TODO: Update deviceClients map when a new connection between a device and user has been created (listen to event from DeviceUserModel)
 
 		DeviceModel.on("updateValue", ({ deviceID, value }) => {
-			this.#sendDeviceMessageToFrontend(deviceID, "updateValue", value);
+			this.#sendDeviceMessageToFrontend(deviceID, "update value", value);
 		});
 
 		DeviceModel.on("newDevice", ({ id, scaleResult }) => {
-			this.#sendDeviceMessageToFrontend(id, "newDevice", scaleResult);
+			this.#sendDeviceMessageToFrontend(id, "new device", scaleResult);
 		});
 
 		DeviceModel.on("updateDevice", ({ id, name, description }) => {
-			this.#sendDeviceMessageToFrontend(id, "updateDeviceDescription", { name, description });
+			this.#sendDeviceMessageToFrontend(id, "update device description", { name, description });
 		});
 
 		DeviceModel.on("OnlineStateUpdate", ({ id, online }) => {
-			this.#sendDeviceMessageToFrontend(id, "updateDeviceOnlineState", online);
+			this.#sendDeviceMessageToFrontend(id, "update device onlineState", online);
 		});
 	}
 
@@ -82,7 +82,7 @@ export class WebSocketService {
 		}
 		if (ws.readyState === WebSocket.OPEN) {
 			console.debug(devices);
-			ws.send(JSON.stringify({ type: "initalDevices", payload: { devices } }));
+			ws.send(JSON.stringify({ type: "inital devices", payload: { devices } }));
 		}
 	}
 
