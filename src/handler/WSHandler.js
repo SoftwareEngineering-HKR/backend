@@ -95,12 +95,18 @@ export class WSHandler {
 
 	/**call to updateValue in device model
 	 * @param {JSON} data object payload from message
+	 * @param {string} userId - Id of the user that is trying to update the devices value
 	 */
-	async update_value(data) {
+	async update_value(data, userId) {
 		const id = data.id;
 		const value = data.value;
+		const userDevices = await UserDeviceModel.getDevicesByUser(userId);
+		if (!userDevices.includes(id)) {
+			console.debug(`User ${userId} attempted to update device ${id} without access`);
+			return;
+		}
 		try {
-			await DeviceModel.updateValue(id, value);
+			await DeviceModel.setValue(id, value);
 		} catch (e) {
 			console.error(e);
 		}
@@ -134,7 +140,7 @@ export const handler = new WSHandler();
  * @param {JSON} type the message type
  * @param {JSON} payload the message payload
  */
-export const messagehandler = async (type, payload) => {
+export const messagehandler = async (type, payload, userId) => {
 	const handlers = {
 		"create room": handler.create_room.bind(handler),
 		"creat device": handler.create_device.bind(handler),
@@ -143,10 +149,10 @@ export const messagehandler = async (type, payload) => {
 		"delete room": handler.delete_room.bind(handler),
 		"delete device": handler.delete_device.bind(handler),
 		"update value": handler.update_value.bind(handler),
-		"get devices": handler.get_device(),
+		"get devices": handler.get_device.bind(handler),
 		"get room": handler.get_room.bind(handler),
 	};
 
 	const handelfunction = handlers[type];
-	await handelfunction(payload);
+	await handelfunction(payload, userId);
 };

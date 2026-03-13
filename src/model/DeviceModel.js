@@ -154,6 +154,20 @@ class DeviceModel extends EventEmitter {
 	}
 
 	/**
+	 * Updates the the device's scale; this function is supposed to be used by the frontend
+	 * @param {string} id - Id of the device to identify the scale
+	 * @param {number} value - value of the new device scale setting
+	 * @return {Promise<boolean>} - returns true if update was successfull
+	 * @throws {Error} - if update was not successfull
+	 */
+	async setValue(id, value) {
+		let deviceID = await scale.updateValue(id, value);
+		this.emit("updateValue", { deviceID, value });
+		this.emit("sendPublish", { deviceID, value });
+		return;
+	}
+
+	/**
 	 * Updates the the device's online state
 	 * @param {string} id - UUID to identify the scale
 	 * @param {boolean} online - state of the device's online status
