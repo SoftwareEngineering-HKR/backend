@@ -25,7 +25,7 @@ class DeviceModel extends EventEmitter {
 		if (result.rows.length === 0) {
 			throw new Error("No devices was found.");
 		}
-		return result.rows.map((r) => r.id);
+		return result.rows;
 	}
 
 	/**
