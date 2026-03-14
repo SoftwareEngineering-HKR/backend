@@ -84,9 +84,8 @@ class DeviceModel extends EventEmitter {
 
 	/**
 	 * Set up a new device
-	 * @param {string} ip - tip of the divice
-	 * @return {Promise<string>} - returns id for the device
-	 * @throws {Error} - If it was not possible to add a device
+	 * @param {string} ip - ip of the divice
+	 * @param {string} mac - mac of the divice, will be used as id
 	 */
 
 	async initDevice(ip, mac) {

@@ -13,7 +13,7 @@
 		"prepare": "husky",
 		"test": "mocha \"test/**/*.js\"",
 		"test_unit": "mocha \"test/unit/*.js\"",
-		"test_init": "mocha \"test/integration/*.js\""
+		"test_inte": "mocha \"test/integration/*.js\""
 	},
 	"lint-staged": {
 		"**/*.{js,jsx,ts,tsx}": "eslint --fix"
