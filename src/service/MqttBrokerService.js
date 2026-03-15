@@ -22,9 +22,14 @@ export class MqttBrokerService {
 	#clients = new Map();
 	/** @type {WeakMap<net.Socket, SocketState} */
 	#socketState = new WeakMap();
-	// #subscriptions = new Map();
+	/** @type {Map<string, Array<net.Socket, string>>} */
+	#subscriptions = new Map();
 	/** @type {Map<string, Topic} */
 	#deviceTopics = new Map();
+	/** @type {Map<string, [number, number]}> */
+	#outgoingMessages = new Map();
+	/** @type {number} */
+	#packetIdCounter = 0;
 
 	/**
 	 * Initialise the broker so that frontend clients can exchange messages with the devices.
@@ -64,6 +69,8 @@ export class MqttBrokerService {
 		server.listen({ port: process.env.MQTT_BROKER_PORT || 1883, host: "0.0.0.0" }, () => {
 			console.log(`MQTT socker listening on port: ${process.env.MQTT_BROKER_PORT || 1883}`);
 		});
+
+		this.#deviceModel.on("sendPublish", ({ id, value }) => this.#setDeviceValue(id, value));
 	}
 
 	/**
@@ -122,8 +129,16 @@ export class MqttBrokerService {
 				this.#handlePublish(socket, flags, payload);
 				break;
 
+			case 4:
+				this.#handlePubAck(socket, payload);
+				break;
+
 			case 8:
 				this.#handleSubscribe(socket, payload);
+				break;
+
+			case 12:
+				this.#handlePingRequest(socket);
 				break;
 
 			case 14:
@@ -133,6 +148,84 @@ export class MqttBrokerService {
 			default:
 				socket.destroy();
 		}
+	}
+
+	/**
+	 * Send publish package to an online device to change its value
+	 * @param {string} deviceId - ID of the device which value should be changed
+	 * @param {number} value - The value which device should update its state to
+	 * @returns {void}
+	 */
+	#setDeviceValue(deviceId, value) {
+		this.#packetIdCounter = (this.#packetIdCounter % 65535) + 1;
+		const packetId = this.#packetIdCounter;
+
+		this.#outgoingMessages.set(deviceId, [packetId, value]);
+		if (!this.#subscriptions.has(deviceId)) return;
+		const [deviceSocket, topicName] = this.#subscriptions.get(deviceId);
+
+		const topicBytes = Buffer.from(topicName, "utf8");
+		const payloadBytes = Buffer.from(String(value), "utf8");
+
+		const remainingLength = 2 + topicBytes.length + 2 + payloadBytes.length;
+
+		const rlBytes = [];
+		let rl = remainingLength;
+		do {
+			let byte = rl & 0x7f;
+			rl >>>= 7;
+			if (rl > 0) byte |= 0x80;
+			rlBytes.push(byte);
+		} while (rl > 0);
+
+		const packet = Buffer.alloc(1 + rlBytes.length + remainingLength);
+		let offset = 0;
+
+		packet[offset++] = 0x32; // PUBLISH, QoS 1, no retain, no dup
+		for (const byte of rlBytes) packet[offset++] = byte;
+		packet.writeUInt16BE(topicBytes.length, offset);
+		offset += 2;
+		topicBytes.copy(packet, offset);
+		offset += topicBytes.length;
+		packet.writeUInt16BE(packetId, offset);
+		offset += 2;
+		payloadBytes.copy(packet, offset);
+
+		deviceSocket.write(packet);
+		console.debug(`PUBLISH sent to ${deviceId} topic: "${topicName}" value: ${value} packetId: ${packetId}`);
+	}
+
+	/**
+	 * Deal with publish confirmation packages; Checks if it is a response to an existing outgoing message
+	 * @param {net.Socket} socket - Socket that holds the connection information to the MQTT client
+	 * @param {Buffer<ArrayBufferLike>} packet - Variable header
+	 * @returns {void}
+	 */
+	#handlePubAck(socket, packet) {
+		const packetId = (packet[0] << 8) + packet[1];
+		const state = this.#socketState.get(socket);
+		const deviceId = state.clientId;
+		const latestMessage = this.#outgoingMessages.get(deviceId);
+		if (!latestMessage) return;
+		console.debug("Received confirmation for packetId:", latestMessage[0]);
+
+		if (latestMessage[0] != packetId) return;
+		try {
+			this.#deviceModel.updateValue(deviceId, latestMessage[1]);
+			this.#outgoingMessages.delete(deviceId);
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
+	/**
+	 * Respond to a ping request
+	 * @param{net.Socket} socket - Socket that the client is bound to
+	 * @returns {void}
+	 */
+	#handlePingRequest(socket) {
+		const pingresp = [0xd0, 0x00];
+		socket.write(Buffer.from(pingresp));
 	}
 
 	/**
@@ -186,8 +279,55 @@ export class MqttBrokerService {
 		}
 	}
 
-	#handleSubscribe(socket, packet) {
-		console.debug(socket, packet);
+	/**
+	 * Parse subscribe messages and add them to the internal subscribe map
+	 * @param {net.Socket} socket - Socket object where the client is bound to
+	 * @param {Buffer<ArrayBufferLike>} packet - Variable header + payload of the MQTT packet
+	 * @returns {Promise<void>}
+	 */
+	async #handleSubscribe(socket, packet) {
+		let offset = 0;
+
+		const packageId = (packet[offset] << 8) + packet[offset + 1];
+		offset += 2;
+
+		const topicNameLength = (packet[offset] << 8) + packet[offset + 1];
+		offset += 2;
+
+		const topicName = packet.subarray(offset, offset + topicNameLength).toString();
+		offset += topicNameLength;
+
+		const qosLevel = packet[offset];
+		offset++;
+
+		console.debug(`SUBSCRIBE Package ${packageId} topic: "${topicName}" QoS: ${qosLevel}`);
+
+		const state = this.#socketState.get(socket);
+		if (!state?.registered) {
+			console.debug("Unregistered client tried to subscribe:", state?.clientId);
+			socket.destroy();
+			return;
+		}
+
+		this.#subscriptions.set(state.clientId, [socket, topicName]);
+
+		const subAck = Buffer.alloc(5);
+		subAck[0] = 0x90;
+		subAck[1] = 0x03;
+		subAck.writeUInt16BE(packageId, 2);
+		subAck[4] = qosLevel;
+		socket.write(subAck);
+
+		if (this.#outgoingMessages.has(state.clientId)) {
+			this.#setDeviceValue(state.clientId, this.#outgoingMessages.get(state.clientId)[1]);
+		} else {
+			try {
+				const deviceValue = await this.#deviceModel.getDeviceValue(state.clientId);
+				if (deviceValue) this.#setDeviceValue(state.clientId, deviceValue);
+			} catch (e) {
+				console.error("Could not send inital value to device", e);
+			}
+		}
 	}
 
 	/**
@@ -195,6 +335,7 @@ export class MqttBrokerService {
 	 * @param {net.Socket} socket - Socket object where the client is bound to
 	 * @param {number} flags - The flags of the PUBLISH message
 	 * @param {Buffer<ArrayBufferLike>} packet - Variable header + payload of the MQTT packet
+	 * @returns {Promise<void>}
 	 */
 	async #handlePublish(socket, flags, packet) {
 		let offset = 0;
@@ -266,6 +407,10 @@ export class MqttBrokerService {
 				socket.destroy();
 				return;
 			}
+			const oldTopic = this.#deviceTopics.get(state.clientId);
+			if (oldTopic?.payload !== payloadBuffer.toString()) {
+				this.#deviceModel.updateValue(state.clientId, payloadBuffer.toString());
+			}
 			this.#deviceTopics.set(state.clientId, { topicId: topicName, payload: payloadBuffer.toString() });
 			// console.debug(this.#sessions);
 		}
@@ -283,7 +428,7 @@ export class MqttBrokerService {
 	/**
 	 * Make sure that when a device disconnects the brokers is updated
 	 * @param {net.Socket} socket - The socket object where the client was bound to
-	 * @returns {void}
+	 * @returns {Promise<void>}
 	 */
 	async #handleDisconnect(socket) {
 		const state = this.#socketState.get(socket);
@@ -293,6 +438,9 @@ export class MqttBrokerService {
 			await this.#deviceModel.updateDeviceStatus(state.clientId, false);
 			// cleanup all saved messages from the client
 			this.#deviceTopics.delete(state.clientId);
+
+			// cleanup subscription
+			this.#subscriptions.delete(state.clientId);
 		}
 	}
 
@@ -328,6 +476,8 @@ export class MqttBrokerService {
 		if (identifier == 1) console.debug("CONNECT");
 		else if (identifier == 2) console.debug("CONNACK");
 		else if (identifier == 3) console.debug("PUBLISH");
+		else if (identifier == 4) console.debug("PUBACK");
 		else if (identifier == 8) console.debug("SUBSCRIBE");
+		else if (identifier == 12) console.debug("PINGREQ");
 	}
 }

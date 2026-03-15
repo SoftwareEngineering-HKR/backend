@@ -20,8 +20,13 @@ class UserDeviceModel extends EventEmitter {
 		INNER JOIN user_devices ON devices.id = user_devices.id_device
 		WHERE user_devices.id_user = $1`;
 		const result = await dbs.query(sql, [id_user]);
-		return result.rows.map((r) => r.id);
+		return result.map((r) => r.id);
 	}
+
+	/*
+	 * TODO: here a function should be implemented that is only for admins: add connections between devices and users
+	 * This should emit an event to which the Websocketservice must listen to and update its map of devices.
+	 */
 }
 
 export default new UserDeviceModel();

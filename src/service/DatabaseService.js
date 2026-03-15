@@ -19,7 +19,7 @@ class DatabaseService {
 
 	async query(sql, args = []) {
 		const res = await this.db.query(sql, args);
-		return { rows: res.rows, rowCount: res.rowCount };
+		return res.rows;
 	}
 }
 

@@ -10,13 +10,9 @@ export class WSHandler {
 	 * @throws {Error} If it was not able to call on getDevicesByUser function in UserDeviceModel
 	 */
 	async getUserDevices(userID) {
-		try {
-			const deviceIDs = await UserDeviceModel.getDevicesByUser(userID);
-			const devices = await DeviceModel.getDevicesByIDs(deviceIDs);
-			return devices;
-		} catch (e) {
-			console.error(e);
-		}
+		const deviceIDs = await UserDeviceModel.getDevicesByUser(userID);
+		const devices = await DeviceModel.getDevicesByIDs(deviceIDs);
+		return devices;
 	}
 
 	/**call to setDevice in model
@@ -99,14 +95,21 @@ export class WSHandler {
 
 	/**call to updateValue in device model
 	 * @param {JSON} data object payload from message
+	 * @param {string} userId - Id of the user that is trying to update the devices value
 	 */
-	async update_value(data) {
+	async update_value(data, userId) {
 		const id = data.id;
 		const value = data.value;
+		const userDevices = await UserDeviceModel.getDevicesByUser(userId);
+		if (!userDevices.includes(id)) {
+			console.debug(`User ${userId} attempted to update device ${id} without access`);
+			return this.#constructFrontendResponse(403, "User has no access to requested device.");
+		}
 		try {
-			await DeviceModel.updateValue(id, value);
+			await DeviceModel.setValue(id, value);
 		} catch (e) {
 			console.error(e);
+			return this.#constructFrontendResponse(500, "Device could not be contacted.");
 		}
 	}
 
@@ -130,6 +133,21 @@ export class WSHandler {
 			console.error(e);
 		}
 	}
+
+	/**
+	 * Response messages for the frontend after user actions
+	 * @param {number} statusCode - the status code
+	 * @param {string | undefined} message - optional message to the frontend
+	 */
+	#constructFrontendResponse(statusCode, message = "") {
+		return {
+			type: "action response",
+			payload: {
+				statusCode,
+				message,
+			},
+		};
+	}
 }
 
 export const handler = new WSHandler();
@@ -138,7 +156,7 @@ export const handler = new WSHandler();
  * @param {JSON} type the message type
  * @param {JSON} payload the message payload
  */
-export const messagehandler = async (type, payload) => {
+export const messagehandler = async (type, payload, userId) => {
 	const handlers = {
 		"create room": handler.create_room.bind(handler),
 		"creat device": handler.create_device.bind(handler),
@@ -147,10 +165,10 @@ export const messagehandler = async (type, payload) => {
 		"delete room": handler.delete_room.bind(handler),
 		"delete device": handler.delete_device.bind(handler),
 		"update value": handler.update_value.bind(handler),
-		"get devices": handler.get_device(),
+		"get devices": handler.get_device.bind(handler),
 		"get room": handler.get_room.bind(handler),
 	};
 
 	const handelfunction = handlers[type];
-	await handelfunction(payload);
+	return await handelfunction(payload, userId);
 };
