@@ -26,9 +26,12 @@ export class WebSocketService {
 			console.log("Client connected");
 			this.#updateDeviceConnectionMap(ws, userId);
 
-			ws.on("message", function message(data) {
+			ws.on("message", async (data) => {
 				const mesg = JSON.parse(data);
-				messagehandler(mesg.type, mesg.payload, userId);
+				const response = await messagehandler(mesg.type, mesg.payload, userId);
+				if (response && ws.readyState === WebSocket.OPEN) {
+					ws.send(JSON.stringify(response));
+				}
 			});
 
 			ws.on("error", (error) => {

@@ -161,9 +161,7 @@ class DeviceModel extends EventEmitter {
 	 * @throws {Error} - if update was not successfull
 	 */
 	async setValue(id, value) {
-		let deviceID = await scale.updateValue(id, value);
-		this.emit("updateValue", { deviceID, value });
-		this.emit("sendPublish", { deviceID, value });
+		this.emit("sendPublish", { id, value });
 		return;
 	}
 

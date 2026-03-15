@@ -103,12 +103,13 @@ export class WSHandler {
 		const userDevices = await UserDeviceModel.getDevicesByUser(userId);
 		if (!userDevices.includes(id)) {
 			console.debug(`User ${userId} attempted to update device ${id} without access`);
-			return;
+			return this.#constructFrontendResponse(403, "User has no access to requested device.");
 		}
 		try {
 			await DeviceModel.setValue(id, value);
 		} catch (e) {
 			console.error(e);
+			return this.#constructFrontendResponse(500, "Device could not be contacted.");
 		}
 	}
 
@@ -132,6 +133,21 @@ export class WSHandler {
 			console.error(e);
 		}
 	}
+
+	/**
+	 * Response messages for the frontend after user actions
+	 * @param {number} statusCode - the status code
+	 * @param {string | undefined} message - optional message to the frontend
+	 */
+	#constructFrontendResponse(statusCode, message = "") {
+		return {
+			type: "action response",
+			payload: {
+				statusCode,
+				message,
+			},
+		};
+	}
 }
 
 export const handler = new WSHandler();
@@ -154,5 +170,5 @@ export const messagehandler = async (type, payload, userId) => {
 	};
 
 	const handelfunction = handlers[type];
-	await handelfunction(payload, userId);
+	return await handelfunction(payload, userId);
 };
