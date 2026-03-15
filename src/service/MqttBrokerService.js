@@ -283,9 +283,9 @@ export class MqttBrokerService {
 	 * Parse subscribe messages and add them to the internal subscribe map
 	 * @param {net.Socket} socket - Socket object where the client is bound to
 	 * @param {Buffer<ArrayBufferLike>} packet - Variable header + payload of the MQTT packet
-	 * @returns {void}
+	 * @returns {Promise<void>}
 	 */
-	#handleSubscribe(socket, packet) {
+	async #handleSubscribe(socket, packet) {
 		let offset = 0;
 
 		const packageId = (packet[offset] << 8) + packet[offset + 1];
@@ -317,6 +317,17 @@ export class MqttBrokerService {
 		subAck.writeUInt16BE(packageId, 2);
 		subAck[4] = qosLevel;
 		socket.write(subAck);
+
+		if (this.#outgoingMessages.has(state.clientId)) {
+			this.#setDeviceValue(state.clientId, this.#outgoingMessages.get(state.clientId)[1]);
+		} else {
+			try {
+				const deviceValue = await this.#deviceModel.getDeviceValue(state.clientId);
+				if (deviceValue) this.#setDeviceValue(state.clientId, deviceValue);
+			} catch (e) {
+				console.error("Could not send inital value to device", e);
+			}
+		}
 	}
 
 	/**
