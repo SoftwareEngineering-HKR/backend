@@ -197,6 +197,17 @@ class DeviceModel extends EventEmitter {
 	}
 
 	/**
+	 * Get current value of a device.
+	 * @param {string} id - ID to identify the device
+	 * @return {Promise<boolean>} - returns true if device exists, else false
+	 * @throws {Error} - if query was not successfull
+	 */
+	async getDeviceValue(id) {
+		const scaleResult = await scale.getValue(id);
+		return scaleResult.value;
+	}
+
+	/**
 	 * Gets full device info for a list of device IDs
 	 * @param {string[]} ids - list of device IDs
 	 * @return {Promise<{Object}[]>}
