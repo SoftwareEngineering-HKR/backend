@@ -10,17 +10,17 @@ export default authmodel;
  * @returns {string} JWT access token
  */
 authmodel.createAccessJWToken = (userId, role) => {
-	const token = jwt.sign({ userId, role }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
+	const token = jwt.sign({ sub: userId, role: role }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
 	return token;
 };
 
 /**
  *
- * @param {Object} user - conatins userId and role
+ * @param {Object} user - conatins userId, role and device
  * @returns {string} JWT refresh token
  */
-authmodel.createRefreshToken = (user) => {
-	return jwt.sign(user, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
+authmodel.createRefreshToken = (userId, role, device) => {
+	return jwt.sign({ sub: userId, role: role, device: device }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
 };
 /**
  *

@@ -1,6 +1,5 @@
 import bcrypt from "bcrypt";
 import dbs from "../service/DatabaseService.js";
-import jwt from "../middleware/jwt.js";
 
 /**
  * Model for the User table
@@ -189,8 +188,8 @@ class UserModel {
 		if (!success) {
 			throw new Error("Invalid username or password.");
 		}
-		const token = jwt.createToken({ id: user.id, user: userName, type: user.type });
-		return token;
+
+		return user;
 	}
 }
 
