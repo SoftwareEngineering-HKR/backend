@@ -159,7 +159,7 @@ export const handler = new WSHandler();
 export const messagehandler = async (type, payload, userId) => {
 	const handlers = {
 		"create room": handler.create_room.bind(handler),
-		"creat device": handler.create_device.bind(handler),
+		"create device": handler.create_device.bind(handler),
 		"update device": handler.update_device.bind(handler),
 		"update room": handler.update_room.bind(handler),
 		"delete room": handler.delete_room.bind(handler),
