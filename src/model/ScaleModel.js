@@ -13,10 +13,10 @@ class ScaleModel {
 	 */
 
 	async getValue(id) {
-		let sql = "SELECT value, min_value, max_value FROM scales WHERE id = $1";
+		let sql = "SELECT value, min_value, max_value FROM scales WHERE id_device = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		const row = result.rows[0];
+		const row = result[0];
 		if (!row) {
 			throw new Error("No scale for this device found.");
 		}
@@ -55,16 +55,16 @@ class ScaleModel {
 
 	async updateValue(id, value) {
 		const scale = await this.getValue(id);
-		if (scale.max_value < value || scale.min_value > value) {
+		if (Number(scale.max_value) < value || Number(scale.min_value) > value) {
 			throw new Error("Value can not exceed max value");
 		}
-		const sql = "UPDATE scales SET value = $1 WHERE id = $2 RETURNING id_device";
+		const sql = "UPDATE scales SET value = $1 WHERE id_device = $2 RETURNING id_device";
 		const args = [value, id];
 		const result = await dbs.query(sql, args);
 		if (result.rowCount === 0) {
 			throw new Error("Scale not found");
 		}
-		const row = result.rows[0];
+		const row = result[0];
 		return row.id_device;
 	}
 

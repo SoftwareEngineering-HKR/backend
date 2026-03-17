@@ -153,6 +153,18 @@ class DeviceModel extends EventEmitter {
 	}
 
 	/**
+	 * Updates the the device's scale; this function is supposed to be used by the frontend
+	 * @param {string} id - Id of the device to identify the scale
+	 * @param {number} value - value of the new device scale setting
+	 * @return {Promise<boolean>} - returns true if update was successfull
+	 * @throws {Error} - if update was not successfull
+	 */
+	async setValue(id, value) {
+		this.emit("sendPublish", { id, value });
+		return;
+	}
+
+	/**
 	 * Updates the the device's online state
 	 * @param {string} id - UUID to identify the scale
 	 * @param {boolean} online - state of the device's online status
@@ -177,10 +189,21 @@ class DeviceModel extends EventEmitter {
 		const sql = "SELECT ip FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		if (result.rowCount > 0) {
+		if (result.length > 0) {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Get current value of a device.
+	 * @param {string} id - ID to identify the device
+	 * @return {Promise<boolean>} - returns true if device exists, else false
+	 * @throws {Error} - if query was not successfull
+	 */
+	async getDeviceValue(id) {
+		const scaleResult = await scale.getValue(id);
+		return scaleResult.value;
 	}
 
 	/**
@@ -210,7 +233,7 @@ class DeviceModel extends EventEmitter {
 			WHERE devices.id = ANY($1)
 		`;
 		const result = await dbs.query(sql, [ids]);
-		return result.rows;
+		return result;
 	}
 }
 
