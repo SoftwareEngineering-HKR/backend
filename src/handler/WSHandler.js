@@ -3,11 +3,6 @@ import RoomModel from "../model/RoomModel.js";
 import UserDeviceModel from "../model/UserDevicesModel.js";
 
 export class WSHandler {
-	/** This will handle the authorization if the user has permission */
-
-	authorized(user) {
-		if (user.role != "admin") return;
-	}
 	/**
 	 * Get devices that the user has access to
 	 * @param {string} userID - ID of the user in question
