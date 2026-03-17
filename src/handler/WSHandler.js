@@ -172,3 +172,15 @@ export const messagehandler = async (type, payload, userId) => {
 	const handelfunction = handlers[type];
 	return await handelfunction(payload, userId);
 };
+
+export const permissions = {
+	"create room": ["admin"],
+	"create device": ["admin"],
+	"update device": ["admin"],
+	"update room": ["admin"],
+	"delete room": ["admin"],
+	"delete device": ["admin"],
+	"update value": ["admin", "user"],
+	"get devices": ["admin", "user"],
+	"get room": ["admin"],
+};
