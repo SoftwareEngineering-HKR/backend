@@ -1,5 +1,5 @@
 import WebSocket, { WebSocketServer } from "ws";
-import { messagehandler, handler } from "../handler/WSHandler.js";
+import { messagehandler, handler, permissions } from "../handler/WSHandler.js";
 import DeviceModel from "../model/DeviceModel.js";
 
 export class WebSocketService {
@@ -22,6 +22,9 @@ export class WebSocketService {
 		// TODO: this should be replaced later by parsing the UserID from the access token
 		const userId = "6a77949f-4a2d-4d17-9fc2-62c7249d1a58";
 
+		// TODO: this should be replaced later by parsing the userRole from the access token
+		const userRole = "";
+
 		this.#wss.on("connection", async (ws) => {
 			console.log("Client connected");
 
@@ -40,6 +43,9 @@ export class WebSocketService {
 
 			ws.on("message", function message(data) {
 				const mesg = JSON.parse(data);
+				if (!permissions[mesg.type].includes(userRole)) {
+					ws.send(JSON.stringify({ error: "Permission denied!" }));
+				}
 				messagehandler(mesg.type, mesg.payload);
 			});
 

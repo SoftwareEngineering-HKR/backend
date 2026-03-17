@@ -3,6 +3,11 @@ import RoomModel from "../model/RoomModel.js";
 import UserDeviceModel from "../model/UserDevicesModel.js";
 
 export class WSHandler {
+	/** This will handle the authorization if the user has permission */
+
+	authorized(user) {
+		if (user.role != "admin") return;
+	}
 	/**
 	 * Get devices that the user has access to
 	 * @param {string} userID - ID of the user in question
@@ -141,7 +146,7 @@ export const handler = new WSHandler();
 export const messagehandler = async (type, payload) => {
 	const handlers = {
 		"create room": handler.create_room.bind(handler),
-		"creat device": handler.create_device.bind(handler),
+		"create device": handler.create_device.bind(handler),
 		"update device": handler.update_device.bind(handler),
 		"update room": handler.update_room.bind(handler),
 		"delete room": handler.delete_room.bind(handler),
@@ -153,4 +158,16 @@ export const messagehandler = async (type, payload) => {
 
 	const handelfunction = handlers[type];
 	await handelfunction(payload);
+};
+
+export const permissions = {
+	"create room": ["admin"],
+	"create device": ["admin"],
+	"update device": ["admin"],
+	"update room": ["admin"],
+	"delete room": ["admin"],
+	"delete device": ["admin"],
+	"update value": ["admin", "user"],
+	"get devices": ["admin", "user"],
+	"get room": ["admin"],
 };
