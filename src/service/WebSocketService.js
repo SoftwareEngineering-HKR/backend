@@ -23,7 +23,7 @@ export class WebSocketService {
 		const userId = "6a77949f-4a2d-4d17-9fc2-62c7249d1a58";
 
 		// TODO: this should be replaced later by parsing the userRole from the access token
-		const userRole = "";
+		const userRole = "admin";
 
 		this.#wss.on("connection", async (ws) => {
 			console.log("Client connected");
@@ -34,7 +34,6 @@ export class WebSocketService {
 				if (!permissions[mesg.type].includes(userRole)) {
 					ws.send(JSON.stringify({ error: "Permission denied!" }));
 				}
-				messagehandler(mesg.type, mesg.payload);
 				const response = await messagehandler(mesg.type, mesg.payload, userId);
 				if (response && ws.readyState === WebSocket.OPEN) {
 					ws.send(JSON.stringify(response));
