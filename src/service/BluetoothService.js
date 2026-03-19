@@ -1,9 +1,15 @@
 import { Bluetooth } from "webbluetooth";
 
-export class BluetoothService {
+/**
+ * @typedef {Object} BluetoothDeviceInfo
+ * @property {string} address - The identifier for the device
+ * @property {string | undefined} name - The name of the device
+ */
+
+class BluetoothService {
 	/** @type {Bluetooth} */
 	#bluetooth = null;
-	/** @type {Promise<BluetoothDevice[]> | null} */
+	/** @type {Promise<BluetoothDeviceInfo[]> | null} */
 	#activeScan = null;
 
 	/**
@@ -24,7 +30,7 @@ export class BluetoothService {
 
 	/**
 	 * Scans for nearby BLE devices for 4 seconds.
-	 * @returns {Promise<BluetoothDevice[]>}
+	 * @returns {Promise<BluetoothDeviceInfo[]>}
 	 * @throws {Error} if bluetooth is not started
 	 */
 	async scan() {
@@ -37,10 +43,20 @@ export class BluetoothService {
 
 		console.debug("Starting bluetooth scan...");
 
-		this.#activeScan = this.#bluetooth.getDevices().finally(() => {
-			this.#activeScan = null;
-			console.debug("Finished bluetooth scan!");
-		});
+		this.#activeScan = this.#bluetooth
+			.getDevices()
+			.then((devices) =>
+				devices.map((device) => ({
+					id: device.id,
+					name: device.name.startsWith("Unknown") ? "Unknown" : device.name,
+				})),
+			)
+			.finally(() => {
+				this.#activeScan = null;
+				console.debug("Finished bluetooth scan!");
+			});
 		return this.#activeScan;
 	}
 }
+
+export default new BluetoothService();
