@@ -1,5 +1,5 @@
 CREATE TYPE type_of_user AS ENUM ('admin', 'user');
-CREATE TYPE type_of_device AS ENUM ('light');
+CREATE TYPE type_of_device AS ENUM ('light', 'button', 'gas', 'steam', 'humidity', 'buzz', 'servo', 'fan', 'display');
 
 CREATE TABLE users (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
