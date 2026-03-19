@@ -1,6 +1,7 @@
 import DeviceModel from "../model/DeviceModel.js";
 import RoomModel from "../model/RoomModel.js";
 import UserDeviceModel from "../model/UserDevicesModel.js";
+import BluetoothService from "../service/BluetoothService.js";
 
 export class WSHandler {
 	/**
@@ -148,6 +149,16 @@ export class WSHandler {
 			},
 		};
 	}
+
+	async get_bluetooth_devices() {
+		try {
+			const devices = await BluetoothService.scan();
+			return { type: "bluetooth devices", payload: { devices } };
+		} catch (e) {
+			console.error(e);
+			return this.#constructFrontendResponse(500, "Bluetooth scan failed.");
+		}
+	}
 }
 
 export const handler = new WSHandler();
@@ -155,6 +166,7 @@ export const handler = new WSHandler();
 /**Message handeling
  * @param {JSON} type the message type
  * @param {JSON} payload the message payload
+ * @param {JSON} userId of the user that sent the message
  */
 export const messagehandler = async (type, payload, userId) => {
 	const handlers = {
@@ -167,6 +179,7 @@ export const messagehandler = async (type, payload, userId) => {
 		"update value": handler.update_value.bind(handler),
 		"get devices": handler.get_device.bind(handler),
 		"get room": handler.get_room.bind(handler),
+		"get bluetooth devices": handler.get_bluetooth_devices.bind(handler),
 	};
 
 	const handelfunction = handlers[type];
@@ -183,4 +196,5 @@ export const permissions = {
 	"update value": ["admin", "user"],
 	"get devices": ["admin", "user"],
 	"get room": ["admin"],
+	"get bluetooth devices": ["admin"],
 };
