@@ -150,6 +150,9 @@ export class WSHandler {
 		};
 	}
 
+	/**
+	 * Method to get available bluetooth device
+	 */
 	async get_bluetooth_devices() {
 		try {
 			const devices = await BluetoothService.scan();
@@ -157,6 +160,19 @@ export class WSHandler {
 		} catch (e) {
 			console.error(e);
 			return this.#constructFrontendResponse(500, "Bluetooth scan failed.");
+		}
+	}
+
+	/**
+	 * Method to connect to a bluetooth device
+	 * @param {JSON} data - object payload from message
+	 */
+	async connect_bluetooth_device(data) {
+		try {
+			await BluetoothService.connectDevice(data.id);
+		} catch (e) {
+			console.error(e);
+			return this.#constructFrontendResponse(500, "Bluetooth connection to device failed.");
 		}
 	}
 }
@@ -180,6 +196,7 @@ export const messagehandler = async (type, payload, userId) => {
 		"get devices": handler.get_device.bind(handler),
 		"get room": handler.get_room.bind(handler),
 		"get bluetooth devices": handler.get_bluetooth_devices.bind(handler),
+		"connect bluetooth device": handler.connect_bluetooth_device.bind(handler),
 	};
 
 	const handelfunction = handlers[type];
@@ -197,4 +214,5 @@ export const permissions = {
 	"get devices": ["admin", "user"],
 	"get room": ["admin"],
 	"get bluetooth devices": ["admin"],
+	"connect bluetooth device": ["admin"],
 };
