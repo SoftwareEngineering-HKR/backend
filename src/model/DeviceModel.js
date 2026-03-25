@@ -235,6 +235,17 @@ class DeviceModel extends EventEmitter {
 		const result = await dbs.query(sql, [ids]);
 		return result;
 	}
+
+	/**
+	 * Returns all ids of bluetooth devices
+	 * @return {Promise<Array<string>} - returns array of bluetooth device IDs
+	 * @throws {Error} - if query was not successfull
+	 */
+	async getBluetoothDevices() {
+		const sql = "SELECT id FROM devices WHERE ip = 'bluetooth'";
+		const result = await dbs.query(sql);
+		return result.map((device) => device.id);
+	}
 }
 
 export default new DeviceModel();
