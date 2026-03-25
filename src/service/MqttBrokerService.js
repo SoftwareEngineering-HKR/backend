@@ -20,6 +20,8 @@ export class MqttBrokerService {
 	#deviceModel = DeviceModel;
 	/** @type {Map<string, net.Socket>} */
 	#clients = new Map();
+	/** @type {Map<string, net.Socket>} */
+	#registeredDevices = new Map();
 	/** @type {WeakMap<net.Socket, SocketState} */
 	#socketState = new WeakMap();
 	/** @type {Map<string, Array<net.Socket, string>>} */
@@ -30,6 +32,8 @@ export class MqttBrokerService {
 	#outgoingMessages = new Map();
 	/** @type {number} */
 	#packetIdCounter = 0;
+	/** @type {Map<number, string>} */
+	#packetIdToDeviceId = new Map();
 
 	/**
 	 * Initialise the broker so that frontend clients can exchange messages with the devices.
@@ -38,7 +42,7 @@ export class MqttBrokerService {
 	start() {
 		const server = net.createServer((socket) => {
 			console.debug("Client connected");
-			this.#socketState.set(socket, { buffers: [], bufferedBytes: 0, clientId: null, registered: false });
+			this.#socketState.set(socket, { buffers: [], bufferedBytes: 0, clientId: null });
 
 			socket.on("data", (data) => {
 				const MAX_BUFFER_BYTES = 1024 * 1024;
@@ -52,6 +56,7 @@ export class MqttBrokerService {
 				state.bufferedBytes += data.length;
 				this.#processBuffer(socket, state);
 			});
+
 			socket.on("close", () => {
 				console.debug("Closing socket.");
 				this.#handleDisconnect(socket);
@@ -130,7 +135,7 @@ export class MqttBrokerService {
 				break;
 
 			case 4:
-				this.#handlePubAck(socket, payload);
+				this.#handlePubAck(payload);
 				break;
 
 			case 8:
@@ -161,6 +166,8 @@ export class MqttBrokerService {
 		const packetId = this.#packetIdCounter;
 
 		this.#outgoingMessages.set(deviceId, [packetId, value]);
+		this.#packetIdToDeviceId.set(packetId, deviceId);
+
 		if (!this.#subscriptions.has(deviceId)) return;
 		const [deviceSocket, topicName] = this.#subscriptions.get(deviceId);
 
@@ -181,7 +188,7 @@ export class MqttBrokerService {
 		const packet = Buffer.alloc(1 + rlBytes.length + remainingLength);
 		let offset = 0;
 
-		packet[offset++] = 0x32; // PUBLISH, QoS 1, no retain, no dup
+		packet[offset++] = 0x32; // PUBLISH, QoS 1
 		for (const byte of rlBytes) packet[offset++] = byte;
 		packet.writeUInt16BE(topicBytes.length, offset);
 		offset += 2;
@@ -201,18 +208,19 @@ export class MqttBrokerService {
 	 * @param {Buffer<ArrayBufferLike>} packet - Variable header
 	 * @returns {void}
 	 */
-	#handlePubAck(socket, packet) {
+	#handlePubAck(packet) {
 		const packetId = (packet[0] << 8) + packet[1];
-		const state = this.#socketState.get(socket);
-		const deviceId = state.clientId;
-		const latestMessage = this.#outgoingMessages.get(deviceId);
-		if (!latestMessage) return;
-		console.debug("Received confirmation for packetId:", latestMessage[0]);
 
-		if (latestMessage[0] != packetId) return;
+		const deviceId = this.#packetIdToDeviceId.get(packetId);
+		if (!deviceId) return;
+
+		const latestMessage = this.#outgoingMessages.get(deviceId);
+		if (!latestMessage || latestMessage[0] !== packetId) return;
+
 		try {
 			this.#deviceModel.updateValue(deviceId, latestMessage[1]);
 			this.#outgoingMessages.delete(deviceId);
+			this.#packetIdToDeviceId.delete(packetId);
 		} catch (e) {
 			console.error(e);
 		}
@@ -242,17 +250,16 @@ export class MqttBrokerService {
 		const protocolName = packet.subarray(offset, offset + protocolNameLength).toString();
 		offset += protocolNameLength;
 
-		const protocolVersion = packet[offset++]; // 4 == 3.1.1
-		offset += 3; // this skips the flags and keep alive for now
+		const protocolVersion = packet[offset++];
+		offset += 3; // skip flags and keep alive
 
 		console.debug(protocolName, protocolVersion);
 
 		if (protocolName !== "MQTT" || protocolVersion !== 4) {
 			console.error(
-				`Expected protocol name: "MQTT", recieved: "${protocolName.toString()}"; expected protocol version: 4, recieved: ${protocolVersion}`,
+				`Expected protocol name: "MQTT", received: "${protocolName}"; expected version: 4, received: ${protocolVersion}`,
 			);
-			const connAck = [0x20, 0x02, 0x01, 0x01];
-			socket.write(Buffer.from(connAck));
+			socket.write(Buffer.from([0x20, 0x02, 0x01, 0x01]));
 			socket.destroy();
 			return;
 		}
@@ -260,7 +267,7 @@ export class MqttBrokerService {
 		const payload = packet.subarray(offset);
 		const clientNameLength = (payload[0] << 8) + payload[1];
 		const clientName = payload.subarray(2, 2 + clientNameLength).toString();
-		console.debug(clientName);
+		console.debug("Connected Client ID:", clientName);
 
 		const state = this.#socketState.get(socket);
 		state.clientId = clientName;
@@ -269,13 +276,10 @@ export class MqttBrokerService {
 			const oldSocket = this.#clients.get(clientName);
 			if (!oldSocket.destroyed) oldSocket.destroy();
 			this.#clients.set(clientName, socket);
-			const connAck = [0x20, 0x02, 0x01, 0x00];
-			//TODO: handle session restoration
-			socket.write(Buffer.from(connAck));
+			socket.write(Buffer.from([0x20, 0x02, 0x01, 0x00]));
 		} else {
 			this.#clients.set(clientName, socket);
-			const connAck = [0x20, 0x02, 0x00, 0x00];
-			socket.write(Buffer.from(connAck));
+			socket.write(Buffer.from([0x20, 0x02, 0x00, 0x00]));
 		}
 	}
 
@@ -298,18 +302,23 @@ export class MqttBrokerService {
 		offset += topicNameLength;
 
 		const qosLevel = packet[offset];
-		offset++;
 
 		console.debug(`SUBSCRIBE Package ${packageId} topic: "${topicName}" QoS: ${qosLevel}`);
 
-		const state = this.#socketState.get(socket);
-		if (!state?.registered) {
-			console.debug("Unregistered client tried to subscribe:", state?.clientId);
-			socket.destroy();
+		const deviceId = topicName.split("/")[1];
+
+		if (!this.#registeredDevices.has(deviceId)) {
+			console.debug("Unregistered device tried to subscribe:", deviceId);
+			const subAck = Buffer.alloc(5);
+			subAck[0] = 0x90;
+			subAck[1] = 0x03;
+			subAck.writeUInt16BE(packageId, 2);
+			subAck[4] = 0x80;
+			socket.write(subAck);
 			return;
 		}
 
-		this.#subscriptions.set(state.clientId, [socket, topicName]);
+		this.#subscriptions.set(deviceId, [socket, topicName]);
 
 		const subAck = Buffer.alloc(5);
 		subAck[0] = 0x90;
@@ -318,14 +327,14 @@ export class MqttBrokerService {
 		subAck[4] = qosLevel;
 		socket.write(subAck);
 
-		if (this.#outgoingMessages.has(state.clientId)) {
-			this.#setDeviceValue(state.clientId, this.#outgoingMessages.get(state.clientId)[1]);
+		if (this.#outgoingMessages.has(deviceId)) {
+			this.#setDeviceValue(deviceId, this.#outgoingMessages.get(deviceId)[1]);
 		} else {
 			try {
-				const deviceValue = await this.#deviceModel.getDeviceValue(state.clientId);
-				if (deviceValue) this.#setDeviceValue(state.clientId, deviceValue);
+				const deviceValue = await this.#deviceModel.getDeviceValue(deviceId);
+				if (deviceValue) this.#setDeviceValue(deviceId, deviceValue);
 			} catch (e) {
-				console.error("Could not send inital value to device", e);
+				console.error("Could not send initial value to device:", e);
 			}
 		}
 	}
@@ -353,7 +362,6 @@ export class MqttBrokerService {
 		}
 
 		const payloadBuffer = packet.subarray(offset);
-
 		console.debug(`Received Package ${packageId || "-"} topic: ${topicName} with payload: ${payloadBuffer}`);
 		const state = this.#socketState.get(socket);
 
@@ -366,9 +374,8 @@ export class MqttBrokerService {
 				return;
 			}
 
-			const clientName = state.clientId;
 			if (
-				!clientName ||
+				!state.clientId ||
 				typeof payload.id !== "string" ||
 				typeof payload.type !== "string" ||
 				typeof payload.maxVal !== "number" ||
@@ -378,10 +385,10 @@ export class MqttBrokerService {
 				return;
 			}
 			try {
-				if ((await this.#deviceModel.checkIfDeviceExists(clientName)) === false) {
-					console.debug("client will be added to DB");
+				if ((await this.#deviceModel.checkIfDeviceExists(payload.id)) === false) {
+					console.debug("Device will be added to DB:", payload.id);
 					await this.#deviceModel.setDevice(
-						clientName,
+						payload.id,
 						null,
 						payload.type,
 						true,
@@ -393,30 +400,28 @@ export class MqttBrokerService {
 						payload.minVal,
 					);
 				} else {
-					await this.#deviceModel.updateDeviceStatus(clientName, true);
+					await this.#deviceModel.updateDeviceStatus(payload.id, true);
 				}
 			} catch (error) {
 				console.error("Error trying to add device to DB:", error);
 				return;
 			}
-			state.registered = true;
+			this.#registeredDevices.set(payload.id, socket);
+			console.debug("Device registered:", payload.id);
 		} else {
-			// device should be registered and can publish messages to their topic
-			if (!state.registered || !state.clientId) {
-				console.debug("Message received from unregistered device with ID:", state.clientId);
-				socket.destroy();
+			const deviceId = topicName.split("/")[1];
+			if (!this.#registeredDevices.has(deviceId)) {
+				console.debug("Message received for unregistered device:", deviceId);
 				return;
 			}
-			const oldTopic = this.#deviceTopics.get(state.clientId);
+			const oldTopic = this.#deviceTopics.get(deviceId);
 			if (oldTopic?.payload !== payloadBuffer.toString()) {
-				this.#deviceModel.updateValue(state.clientId, payloadBuffer.toString());
+				this.#deviceModel.updateValue(deviceId, payloadBuffer.toString());
 			}
-			this.#deviceTopics.set(state.clientId, { topicId: topicName, payload: payloadBuffer.toString() });
-			// console.debug(this.#sessions);
+			this.#deviceTopics.set(deviceId, { topicId: topicName, payload: payloadBuffer.toString() });
 		}
 
-		if (qosLevel == 1) {
-			// console.debug("Responding with PUPACK to:", socket.remoteAddress);
+		if (qosLevel === 1) {
 			const pubAck = Buffer.alloc(4);
 			pubAck[0] = 0x40;
 			pubAck[1] = 0x02;
@@ -434,13 +439,19 @@ export class MqttBrokerService {
 		const state = this.#socketState.get(socket);
 		if (state?.clientId) {
 			this.#clients.delete(state.clientId);
+		}
 
-			await this.#deviceModel.updateDeviceStatus(state.clientId, false);
-			// cleanup all saved messages from the client
-			this.#deviceTopics.delete(state.clientId);
+		for (const [deviceId, deviceSocket] of this.#registeredDevices) {
+			if (deviceSocket !== socket) continue;
 
-			// cleanup subscription
-			this.#subscriptions.delete(state.clientId);
+			await this.#deviceModel.updateDeviceStatus(deviceId, false);
+			this.#deviceTopics.delete(deviceId);
+			this.#subscriptions.delete(deviceId);
+
+			const pendingMessage = this.#outgoingMessages.get(deviceId);
+			if (pendingMessage) this.#packetIdToDeviceId.delete(pendingMessage[0]);
+
+			this.#registeredDevices.delete(deviceId);
 		}
 	}
 
@@ -449,25 +460,21 @@ export class MqttBrokerService {
 	 * @param {Buffer<ArrayBuffer>} buffer - The recieved part of a MQTT message
 	 * @returns {{remainingLength: number, bytesUsed: number} | undefined}
 	 */
-	#getRemainingLength(buffer) {
+	#getRemainingLength(buffer, offset = 0) {
 		let multiplier = 1;
 		let remainingLength = 0;
 		let bytesUsed = 0;
 		while (true) {
-			if (buffer.length <= 1 + bytesUsed) return;
-			const encodedByte = buffer[1 + bytesUsed];
+			if (buffer.length <= offset + 1 + bytesUsed) return;
+			const encodedByte = buffer[offset + 1 + bytesUsed];
 			remainingLength += (encodedByte & 127) * multiplier;
 			bytesUsed++;
 			if (bytesUsed > 4) return;
-			if ((encodedByte & 128) === 0) break; // MSB is 0
+			if ((encodedByte & 128) === 0) break;
 			multiplier *= 128;
 		}
 		console.debug(`length: ${remainingLength}, bytesUsed: ${bytesUsed}, buffer size: ${buffer.length}`);
-
-		return {
-			remainingLength,
-			bytesUsed,
-		};
+		return { remainingLength, bytesUsed };
 	}
 
 	// for debugging :)
