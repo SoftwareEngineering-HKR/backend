@@ -1,4 +1,9 @@
 import { Bluetooth } from "webbluetooth";
+import DeviceModel from "../model/DeviceModel.js";
+
+//TODO: initial bluetooth scan
+//TODO: scan for know devices here and there
+//TODO: communication from backend to device
 
 /**
  * @typedef {Object} BluetoothDeviceInfo
@@ -6,14 +11,20 @@ import { Bluetooth } from "webbluetooth";
  * @property {string | undefined} name - The name of the device
  */
 
+/**
+ * @typedef {Object} RegisteredDevice
+ * @property {string | null} deviceId - The identifier for the device
+ * @property {BluetoothDevice} bluetoothDevice - The bluetooth device object
+ */
+
 class BluetoothService {
 	/** @type {Bluetooth} */
 	#bluetooth = null;
 	/** @type {Promise<BluetoothDeviceInfo[]> | null} */
 	#activeScan = null;
-	/** @type {Map<string, BluetoothDevice>}*/
+	/** @type {Map<string, RegisteredDevice>} */
 	#knownDevices = new Map();
-	/** @type {Map<string, BluetoothRemoteGATTServer>} - active connections keyed by id */
+	/** @type {Map<string, BluetoothRemoteGATTServer>} */
 	#connections = new Map();
 
 	/**
@@ -52,7 +63,7 @@ class BluetoothService {
 			.then((devices) => {
 				// store raw devices for later connection
 				for (const device of devices) {
-					this.#knownDevices.set(device.id, device);
+					this.#knownDevices.set(device.id, { deviceId: null, bluetoothDevice: device });
 				}
 				return devices.map((device) => ({
 					id: device.id,
@@ -67,30 +78,103 @@ class BluetoothService {
 	}
 
 	/**
-	 * Make a connection to a bluetooth device
-	 * @param {string} deviceId - Id of the device that the user wants to connect to
+	 * Make a connection to a bluetooth device and register it to the db
+	 * @param {string} bluetoothAddress - Id of the device that the user wants to connect to
 	 * @returns {Promise<void>}
 	 * @throws {Error} If the connection to the device fails
 	 */
-	async connectDevice(deviceId) {
-		const device = this.#knownDevices.get(deviceId);
-		if (!device) throw new Error(`Device ${deviceId} not found.`);
-		if (this.#connections.has(deviceId)) {
-			console.debug(`Already connected to ${deviceId}`);
+	async connectDevice(bluetoothAddress) {
+		const deviceEntry = this.#knownDevices.get(bluetoothAddress);
+		if (!deviceEntry) throw new Error(`Device ${bluetoothAddress} not found.`);
+		const { bluetoothDevice } = deviceEntry;
+		if (this.#connections.has(bluetoothAddress)) {
+			console.debug(`Already connected to ${bluetoothAddress}`);
 			return;
 		}
 
-		console.debug("Attempting to connect to", deviceId);
+		console.debug("Attempting to connect to", bluetoothAddress);
 
-		const server = await device.gatt.connect();
-		this.#connections.set(deviceId, server);
+		const server = await bluetoothDevice.gatt.connect();
+		this.#connections.set(bluetoothAddress, server);
 
-		device.addEventListener("gattserverdisconnected", () => {
-			console.debug(`Device ${deviceId} disconnected.`);
-			this.#connections.delete(deviceId);
+		bluetoothDevice.addEventListener("gattserverdisconnected", () => {
+			try {
+				console.debug(`Device ${bluetoothAddress} disconnected.`);
+				DeviceModel.updateDeviceStatus(bluetoothAddress, false);
+				this.#connections.delete(bluetoothAddress);
+			} catch (e) {
+				console.error("Failed to update device status:", e);
+			}
 		});
 
-		console.log(`Connected to ${device.name ?? deviceId}`);
+		const service = await server.getPrimaryService("12345678-1234-5678-1234-56789abcdef0");
+		const characteristic = await service.getCharacteristic("12345678-1234-5678-1234-56789abcdef1");
+
+		characteristic.addEventListener("characteristicvaluechanged", (event) => {
+			this.#handleIncoming(bluetoothAddress, characteristic, event.target.value);
+		});
+
+		await characteristic.startNotifications();
+
+		await characteristic.writeValueWithResponse(new TextEncoder().encode(JSON.stringify({ type: "rdy" })));
+
+		console.debug(`Connected to ${bluetoothDevice.name ?? bluetoothAddress}`);
+	}
+
+	/**
+	 * @param {string} bluetoothAddress - Id of the bluetooth device
+	 * @param {BluetoothRemoteGATTCharacteristic} characteristic - communication interface
+	 * @param {DataView} payload - the received payload the the device
+	 * @returns {Promise<void>}
+	 */
+	async #handleIncoming(bluetoothAddress, characteristic, payload) {
+		const { deviceId } = this.#knownDevices.get(bluetoothAddress);
+		let msg;
+		try {
+			msg = JSON.parse(new TextDecoder().decode(payload));
+		} catch {
+			console.error(`Invalid JSON from ${bluetoothAddress}`);
+			return;
+		}
+
+		if (msg.type === "register") {
+			console.debug(`Register received from ${bluetoothAddress}:`, msg);
+			try {
+				const exists = await DeviceModel.checkIfDeviceExists(msg.id);
+				if (!exists) {
+					await DeviceModel.setDevice(
+						msg.id,
+						null,
+						msg.id,
+						true,
+						"bluetooth",
+						null,
+						null,
+						null,
+						msg.maxVal,
+						msg.minVal,
+					);
+				} else {
+					await DeviceModel.updateDeviceStatus(msg.id, true);
+				}
+				const device = this.#knownDevices.get(bluetoothAddress);
+				device.deviceId = msg.id;
+				console.debug("DEVICE updated:", device);
+
+				const ack = JSON.stringify({ type: "reg" });
+				await characteristic.writeValueWithResponse(new TextEncoder().encode(ack));
+				console.debug(`Device ${msg.id} registered`);
+			} catch (e) {
+				console.error("Registration failed:", e);
+			}
+		} else if (msg.type === "publish") {
+			// console.debug(`Value from ${deviceId}: ${msg.value}`);
+			try {
+				await DeviceModel.updateValue(deviceId, msg.value);
+			} catch (e) {
+				console.error("Could not update device value:", e);
+			}
+		}
 	}
 }
 
