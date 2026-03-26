@@ -1,6 +1,7 @@
 import DeviceModel from "../model/DeviceModel.js";
 import RoomModel from "../model/RoomModel.js";
 import UserDeviceModel from "../model/UserDevicesModel.js";
+import UserModel from "../model/UserModel.js";
 import BluetoothService from "../service/BluetoothService.js";
 
 export class WSHandler {
@@ -136,6 +137,30 @@ export class WSHandler {
 	}
 
 	/**
+	 * Call to promoteUser in user model
+	 * @param {JSON} data object payload from message
+	 */
+	async setUserRole(data) {
+		try {
+			await UserModel.setUserRole(data.userName, data.role);
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
+	/**
+	 * Call to deleteUser in user model
+	 * @param {JSON} data object payload from message
+	 */
+	async deleteUser(data) {
+		try {
+			await UserModel.deleteUser(data.userName);
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
+	/**
 	 * Response messages for the frontend after user actions
 	 * @param {number} statusCode - the status code
 	 * @param {string | undefined} message - optional message to the frontend
@@ -197,6 +222,8 @@ export const messagehandler = async (type, payload, userId) => {
 		"get room": handler.get_room.bind(handler),
 		"get bluetooth devices": handler.get_bluetooth_devices.bind(handler),
 		"connect bluetooth device": handler.connect_bluetooth_device.bind(handler),
+		"update user role": handler.setUserRole(handler),
+		"delete user": handler.deleteUser(handler),
 	};
 
 	const handelfunction = handlers[type];
@@ -215,4 +242,6 @@ export const permissions = {
 	"get room": ["admin"],
 	"get bluetooth devices": ["admin"],
 	"connect bluetooth device": ["admin"],
+	"update user role": ["admin"],
+	"delete user": ["admin"],
 };
