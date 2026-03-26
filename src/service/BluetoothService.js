@@ -1,8 +1,6 @@
 import { Bluetooth } from "webbluetooth";
 import DeviceModel from "../model/DeviceModel.js";
 
-//TODO: communication from backend to device
-
 /**
  * @typedef {Object} BluetoothDeviceInfo
  * @property {string} id - The identifier for the device
@@ -18,6 +16,10 @@ class BluetoothService {
 	#knownDevices = new Map();
 	/** @type {Map<string, BluetoothRemoteGATTServer>} */
 	#connections = new Map();
+	/** @type {Map<string, BluetoothRemoteGATTCharacteristic>} */
+	#characteristics = new Map();
+	/** @type {Map<string, number>} */
+	#pendingMessages = new Map();
 
 	/**
 	 * Initialises the Bluetooth adapter and checks if it is available.
@@ -25,12 +27,22 @@ class BluetoothService {
 	 * @throws {Error} if bluetooth is not available on system
 	 */
 	async start() {
+		try {
+			DeviceModel.resetBluetoothDeviceStatus();
+		} catch (e) {
+			console.error("Could not reset bluetooth device states", e);
+		}
+
 		this.#bluetooth = new Bluetooth({ allowAllDevices: true, scanTime: 4 });
 
 		const available = await this.#bluetooth.getAvailability();
 		if (!available) {
 			throw new Error("Bluetooth adapter is not available");
 		}
+
+		DeviceModel.on("sendPublish", ({ id, value }) => {
+			this.#sendValue(id, value);
+		});
 
 		console.log("Bluetooth adapter is ready");
 		this.reconnect();
@@ -43,7 +55,7 @@ class BluetoothService {
 	async reconnect() {
 		while (true) {
 			try {
-				console.debug("Trying to reconnect to know devices ...");
+				console.debug("Trying to reconnect to known bluetooth devices ...");
 				const pairedDeviceAddresses = await DeviceModel.getBluetoothDevices();
 				const devices = await this.scan();
 				for (const device of devices) {
@@ -57,8 +69,9 @@ class BluetoothService {
 				}
 			} catch (e) {
 				console.error("Could not reconnect to previously connected devices", e);
+			} finally {
+				await new Promise((r) => setTimeout(r, 300000)); // 5 min timeout for now :)
 			}
-			await new Promise((r) => setTimeout(r, 300000)); // 5 min timeout for now :)
 		}
 	}
 
@@ -127,6 +140,7 @@ class BluetoothService {
 				console.debug(`Device ${bluetoothAddress} disconnected.`);
 				DeviceModel.updateDeviceStatus(bluetoothAddress, false);
 				this.#connections.delete(bluetoothAddress);
+				this.#characteristics.delete(bluetoothAddress);
 			} catch (e) {
 				console.error("Failed to update device status:", e);
 			}
@@ -140,8 +154,18 @@ class BluetoothService {
 		});
 
 		await characteristic.startNotifications();
+		this.#characteristics.set(bluetoothAddress, characteristic);
 
-		await characteristic.writeValueWithResponse(new TextEncoder().encode(JSON.stringify({ type: "rdy" })));
+		await characteristic.writeValueWithResponse(new TextEncoder().encode("rdy"));
+
+		try {
+			const message = this.#pendingMessages.get(bluetoothAddress);
+			if (message)
+				await characteristic.writeValueWithResponse(new TextEncoder().encode(JSON.stringify("set;" + message)));
+			DeviceModel.updateValue(bluetoothAddress, message);
+		} catch (e) {
+			console.error("Could not send inital message to device:", e);
+		}
 
 		console.debug(`Connected to ${bluetoothDevice.name ?? bluetoothAddress}`);
 	}
@@ -181,8 +205,7 @@ class BluetoothService {
 				} else {
 					await DeviceModel.updateDeviceStatus(bluetoothAddress, true);
 				}
-				const ack = JSON.stringify({ type: "reg" });
-				await characteristic.writeValueWithResponse(new TextEncoder().encode(ack));
+				await characteristic.writeValueWithResponse(new TextEncoder().encode("reg"));
 				console.debug(`Device ${bluetoothAddress} registered`);
 			} catch (e) {
 				console.error("Registration failed:", e);
@@ -195,8 +218,29 @@ class BluetoothService {
 				console.error("Could not update device value:", e);
 			}
 		} else if (msg.type === "ping") {
-			const pong = JSON.stringify({ type: "pong" });
-			await characteristic.writeValueWithResponse(new TextEncoder().encode(pong));
+			await characteristic.writeValueWithResponse(new TextEncoder().encode("pong"));
+		}
+	}
+
+	/**
+	 * Send a value to a connected bluetooth device.
+	 * @param {string} bluetoothAddress - Id of the bluetooth device
+	 * @param {number} value - the value which the device should change its state to
+	 * @returns {Promise<void>}
+	 */
+	async #sendValue(bluetoothAddress, value) {
+		const characteristic = this.#characteristics.get(bluetoothAddress);
+		if (!characteristic) {
+			console.debug(`Cannot send value: device ${bluetoothAddress} is not connected.`);
+			this.#pendingMessages.set(bluetoothAddress, value);
+			return;
+		}
+		try {
+			await characteristic.writeValueWithResponse(new TextEncoder().encode("set;" + value));
+			console.debug(`Sent value ${value} to ${bluetoothAddress}`);
+			DeviceModel.updateValue(bluetoothAddress, value);
+		} catch (e) {
+			console.error(`Failed to send value to ${bluetoothAddress}:`, e);
 		}
 	}
 }

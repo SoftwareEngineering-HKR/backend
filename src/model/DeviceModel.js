@@ -155,12 +155,14 @@ class DeviceModel extends EventEmitter {
 	/**
 	 * Updates the the device's scale; this function is supposed to be used by the frontend
 	 * @param {string} id - Id of the device to identify the scale
-	 * @param {number} value - value of the new device scale setting
+	 * @param {number} newValue - value of the new device scale setting
 	 * @return {Promise<boolean>} - returns true if update was successfull
 	 * @throws {Error} - if update was not successfull
 	 */
-	async setValue(id, value) {
-		this.emit("sendPublish", { id, value });
+	async setValue(id, newValue) {
+		const { min_value, max_value } = await scale.getValue(id);
+		if (newValue > max_value || newValue < min_value) throw new Error("Value outside of allowed range.");
+		this.emit("sendPublish", { id, value: newValue });
 		return;
 	}
 
@@ -245,6 +247,16 @@ class DeviceModel extends EventEmitter {
 		const sql = "SELECT id FROM devices WHERE ip = 'bluetooth'";
 		const result = await dbs.query(sql);
 		return result.map((device) => device.id);
+	}
+
+	/**
+	 * Sets all bluetooth devices to offline, should only be used on server startup
+	 * @return {Promise<void>}
+	 * @throws {Error} - if query was not successfull
+	 */
+	async resetBluetoothDeviceStatus() {
+		const sql = "UPDATE devices SET online = false WHERE ip = 'bluetooth'";
+		await dbs.query(sql);
 	}
 }
 
