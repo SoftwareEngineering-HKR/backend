@@ -1,6 +1,7 @@
 import express from "express";
 import authmodel from "../middleware/jwt";
 import UserModel from "../model/UserModel";
+
 export const router = express.Router();
 
 router.post("/login", (req, res) => {
@@ -35,7 +36,7 @@ router.post("/refresh", (req, res) =>{
 		}
 		else{
 				const accessToken = authmodel.createAccessJWToken(decoded.id, decoded.type, decoded.device);
-				const refreshToken = authmodel.createRefreshToken(user.id, user.type, user.device);
+				const refreshToken = authmodel.createRefreshToken(decoded.id, decoded.type, decoded.device);
 
 				//call to model
 
@@ -55,4 +56,27 @@ router.post("/logout", (req, res) =>{
 
 	res.clearCookie('refreshToken');
   	res.json({ message: 'Logged out successfully' });
+})
+
+router.post("/signup", (req, res)=>{
+	const { username, password, type } = req.body;
+	try {
+		const user = UserModel.addUser(username, password, type); // does it return user?
+		const accessToken = authmodel.createAccessJWToken(user.id, user.type, user.device);
+		const refreshToken = authmodel.createRefreshToken(user.id, user.type, user.device);
+
+		//call to  model 
+
+		res.cookie("jwt", refreshToken, {
+			httpOnly: true,
+			sameSite: "strict",
+			secure: true,
+		});
+		return res.json({ accessToken });
+	} catch (err) {
+		console.log(err);
+		return res.status(406).json({
+			message: "Invalid credentials",
+		});
+	}
 })
