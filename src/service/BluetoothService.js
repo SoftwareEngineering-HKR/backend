@@ -160,9 +160,10 @@ class BluetoothService {
 
 		try {
 			const message = this.#pendingMessages.get(bluetoothAddress);
-			if (message)
+			if (message) {
 				await characteristic.writeValueWithResponse(new TextEncoder().encode(JSON.stringify("set;" + message)));
-			DeviceModel.updateValue(bluetoothAddress, message);
+				DeviceModel.updateValue(bluetoothAddress, message);
+			}
 		} catch (e) {
 			console.error("Could not send inital message to device:", e);
 		}
