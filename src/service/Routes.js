@@ -5,11 +5,11 @@ import UserModel from "../model/UserModel";
 export const router = express.Router();
 
 router.post("/login", (req, res) => {
-	const { username, password } = req.body;
+	const { username, password, device } = req.body;
 	try {
 		const user = UserModel.login(username, password);
-		const accessToken = authmodel.createAccessJWToken(user.id, user.type, user.device);
-		const refreshToken = authmodel.createRefreshToken(user.id, user.type, user.device);
+		const accessToken = authmodel.createAccessJWToken(user.id, user.type);
+		const refreshToken = authmodel.createRefreshToken(user.id, user.type, device);
 
 		//call to  model 
 
@@ -35,7 +35,7 @@ router.post("/refresh", (req, res) =>{
 			return res.status(406).json({message: 'Unauthorized'});
 		}
 		else{
-				const accessToken = authmodel.createAccessJWToken(decoded.id, decoded.type, decoded.device);
+				const accessToken = authmodel.createAccessJWToken(decoded.id, decoded.type);
 				const refreshToken = authmodel.createRefreshToken(decoded.id, decoded.type, decoded.device);
 
 				//call to model
@@ -59,11 +59,11 @@ router.post("/logout", (req, res) =>{
 })
 
 router.post("/signup", (req, res)=>{
-	const { username, password, type } = req.body;
+	const { username, password, type, device } = req.body;
 	try {
-		const user = UserModel.addUser(username, password, type); // does it return user?
-		const accessToken = authmodel.createAccessJWToken(user.id, user.type, user.device);
-		const refreshToken = authmodel.createRefreshToken(user.id, user.type, user.device);
+		const user = UserModel.addUser(username, password, type); 
+		const accessToken = authmodel.createAccessJWToken(user.id, user.type);
+		const refreshToken = authmodel.createRefreshToken(user.id, user.type, device);
 
 		//call to  model 
 

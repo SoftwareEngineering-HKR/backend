@@ -107,7 +107,7 @@ class UserModel {
 	 * @param {string} username - name of the user
 	 * @param {string} password - password the user choose
 	 * @param {string} type - type of user
-	 * @returns {Promise<number>} The ID of the newly created user.
+	 * @returns {Promise<user>} The user of the newly created user.
 	 */
 	async addUser(username, password, type = "user") {
 		const hashedPassword = await this.hashpass(password);
@@ -121,7 +121,8 @@ class UserModel {
 			arg = [username, hashedPassword];
 		}
 		const result = await dbs.query(sql, arg);
-		return result.rows[0].id;
+		const user = this.getUserById(result.rows[0].id)
+		return user;
 	}
 
 	/**
