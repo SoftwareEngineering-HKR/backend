@@ -15,8 +15,8 @@ router.post("/login", (req, res) => {
 
 		res.cookie("jwt", refreshToken, {
 			httpOnly: true,
-			sameSite: "strict",
-			secure: true,
+			sameSite: "lax",
+			secure: false
 		});
 		return res.json({ accessToken });
 	} catch (err) {
@@ -42,8 +42,8 @@ router.post("/refresh", (req, res) =>{
 
 			res.cookie("jwt", refreshToken, {
 				httpOnly: true,
-				sameSite: "strict",
-				secure: true,
+				sameSite: "lax",
+				secure: false
 				});
 				return res.json({ accessToken });
 			}
@@ -69,8 +69,8 @@ router.post("/signup", (req, res)=>{
 
 		res.cookie("jwt", refreshToken, {
 			httpOnly: true,
-			sameSite: "strict",
-			secure: true,
+			sameSite: "lax",
+			secure: false
 		});
 		return res.json({ accessToken });
 	} catch (err) {
