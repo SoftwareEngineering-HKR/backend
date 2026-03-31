@@ -1,6 +1,7 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { messagehandler, handler, permissions } from "../handler/WSHandler.js";
 import DeviceModel from "../model/DeviceModel.js";
+import UserDevicesModel from "../model/UserDevicesModel.js";
 
 export class WebSocketService {
 	/** @type {number} */
@@ -9,6 +10,8 @@ export class WebSocketService {
 	#wss = new WebSocketServer({ port: this.#PORT });
 	/** @type {Map<string, Set<WebSocket>>} */
 	#deviceClients = new Map();
+	/** @type {Map<string, Set<WebSocket>>} */
+	#socketClients = new Map();
 
 	/**
 	 * Start the websocket server so that the frontend can communicate with the backend
@@ -29,10 +32,15 @@ export class WebSocketService {
 			console.log("Client connected");
 			this.#updateDeviceConnectionMap(ws, userId);
 
+			if (!this.#socketClients.has(userId)) {
+				this.#socketClients.set(userId, new Set());
+			}
+			this.#socketClients.get(userId).add(ws);
+
 			ws.on("message", async (data) => {
 				const mesg = JSON.parse(data);
 				if (!permissions[mesg.type].includes(userRole)) {
-					ws.send(JSON.stringify({ error: "Permission denied!" }));
+					ws.send(JSON.stringify(handler.constructFrontendResponse(403, "Permission denied!")));
 				}
 				const response = await messagehandler(mesg.type, mesg.payload, userId);
 				if (response && ws.readyState === WebSocket.OPEN) {
@@ -48,11 +56,23 @@ export class WebSocketService {
 				for (const clients of this.#deviceClients.values()) {
 					clients.delete(ws);
 				}
+				this.#socketClients.get(userId).delete(ws);
 				console.log("Client disconnected:", userId);
 			});
 		});
 
-		//TODO: Update deviceClients map when a new connection between a device and user has been created (listen to event from DeviceUserModel)
+		UserDevicesModel.on("addedUserToID", ({ userID, device }) => {
+			if (userID == userId) {
+				this.#socketClients.get(userID).forEach((ws) => {
+					const clients = this.#deviceClients.get(device.id);
+					if (!clients) {
+						this.#deviceClients.set(device.id, new Set());
+					}
+					this.#deviceClients.get(device.id).add(ws);
+				});
+				this.#sendDeviceMessageToFrontend(device.id, "added new device", device);
+			}
+		});
 
 		DeviceModel.on("updateValue", ({ deviceID, value }) => {
 			this.#sendDeviceMessageToFrontend(deviceID, "update value", value);
