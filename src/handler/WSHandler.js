@@ -105,13 +105,13 @@ export class WSHandler {
 		const userDevices = await UserDeviceModel.getDevicesByUser(userId);
 		if (!userDevices.includes(id)) {
 			console.debug(`User ${userId} attempted to update device ${id} without access`);
-			return this.#constructFrontendResponse(403, "User has no access to requested device.");
+			return this.constructFrontendResponse(403, "User has no access to requested device.");
 		}
 		try {
 			await DeviceModel.setValue(id, value);
 		} catch (e) {
 			console.error(e);
-			return this.#constructFrontendResponse(500, "Device could not be contacted.");
+			return this.constructFrontendResponse(500, "Device could not be contacted.");
 		}
 	}
 
@@ -161,11 +161,24 @@ export class WSHandler {
 	}
 
 	/**
+	 * Call to add user to a specific device
+	 * @param {JSON} data object payload from message
+	 */
+	async addUserToDevice(data) {
+		try {
+			await UserDeviceModel.addUserToDevice(data.userId, data.deviceId);
+			return this.constructFrontendResponse(200);
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to connect user to device");
+		}
+	}
+	/**
 	 * Response messages for the frontend after user actions
 	 * @param {number} statusCode - the status code
 	 * @param {string | undefined} message - optional message to the frontend
 	 */
-	#constructFrontendResponse(statusCode, message = "") {
+	constructFrontendResponse(statusCode, message = "") {
 		return {
 			type: "action response",
 			payload: {
@@ -184,7 +197,7 @@ export class WSHandler {
 			return { type: "bluetooth devices", payload: { devices } };
 		} catch (e) {
 			console.error(e);
-			return this.#constructFrontendResponse(500, "Bluetooth scan failed.");
+			return this.constructFrontendResponse(500, "Bluetooth scan failed.");
 		}
 	}
 
@@ -197,7 +210,7 @@ export class WSHandler {
 			await BluetoothService.connectDevice(data.id);
 		} catch (e) {
 			console.error(e);
-			return this.#constructFrontendResponse(500, "Bluetooth connection to device failed.");
+			return this.constructFrontendResponse(500, "Bluetooth connection to device failed.");
 		}
 	}
 }
@@ -222,8 +235,9 @@ export const messagehandler = async (type, payload, userId) => {
 		"get room": handler.get_room.bind(handler),
 		"get bluetooth devices": handler.get_bluetooth_devices.bind(handler),
 		"connect bluetooth device": handler.connect_bluetooth_device.bind(handler),
-		"update user role": handler.setUserRole(handler),
-		"delete user": handler.deleteUser(handler),
+		"update user role": handler.setUserRole.bind(handler),
+		"delete user": handler.deleteUser.bind(handler),
+		"add user to device": handler.addUserToDevice.bind(handler),
 	};
 
 	const handelfunction = handlers[type];
@@ -244,4 +258,5 @@ export const permissions = {
 	"connect bluetooth device": ["admin"],
 	"update user role": ["admin"],
 	"delete user": ["admin"],
+	"add user to device": ["admin"],
 };
