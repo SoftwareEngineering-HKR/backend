@@ -38,7 +38,7 @@ CREATE TABLE user_devices (
     PRIMARY KEY (id_user, id_device)
 );
 
-CREATE TABLE refresh_token (
+CREATE TABLE refresh_tokens (
     token NOT NULL VARCHAR(50) UNIQUE,
     user_id NOT NULL NUMERIC,
     expires NOT NULL DATE,

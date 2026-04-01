@@ -22,14 +22,3 @@ authmodel.createAccessJWToken = (userId, role) => {
 authmodel.createRefreshToken = (userId, role, device) => {
 	return jwt.sign({ sub: userId, role: role, device: device }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
 };
-/**
- *
- * @param {string} token - JWT token
- * @param {string} key - The security key used
- * @returns {object} Decoded JWT payload
- * @throws {TokenExpiredError} If the token has expired
- * @throws {JsonWebTokenError} If the token is invalid
- */
-authmodel.tokenVerification = (token, key) => {
-	return jwt.verify(token, key);
-};

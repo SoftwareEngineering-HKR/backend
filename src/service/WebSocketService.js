@@ -1,6 +1,8 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { messagehandler, handler } from "../handler/WSHandler.js";
 import DeviceModel from "../model/DeviceModel.js";
+import jwt from "jsonwebtoken";
+import url from "url";
 
 export class WebSocketService {
 	/** @type {number} */
@@ -20,29 +22,37 @@ export class WebSocketService {
 		});
 
 		// TODO: this should be replaced later by parsing the UserID from the access token
-		const userId = "6a77949f-4a2d-4d17-9fc2-62c7249d1a58";
+		//const userId = "6a77949f-4a2d-4d17-9fc2-62c7249d1a58";
 
-		this.#wss.on("connection", (ws) => {
+		this.#wss.on("connection", (ws, req) => {
 			console.log("Client connected");
-			this.#updateDeviceConnectionMap(ws, userId);
+			var token = url.parse(req.url, true).query.token;
 
-			ws.on("message", async (data) => {
-				const mesg = JSON.parse(data);
-				const response = await messagehandler(mesg.type, mesg.payload, userId);
-				if (response && ws.readyState === WebSocket.OPEN) {
-					ws.send(JSON.stringify(response));
+			jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+				if (err) {
+					ws.close();
+				} else {
+					this.#updateDeviceConnectionMap(ws, decoded.sub);
+
+					ws.on("message", async (data) => {
+						const mesg = JSON.parse(data);
+						const response = await messagehandler(mesg.type, mesg.payload, decoded.sub);
+						if (response && ws.readyState === WebSocket.OPEN) {
+							ws.send(JSON.stringify(response));
+						}
+					});
+
+					ws.on("error", (error) => {
+						console.error("WebSocket error:", error);
+					});
+
+					ws.on("close", () => {
+						for (const clients of this.#deviceClients.values()) {
+							clients.delete(ws);
+						}
+						console.log("Client disconnected:", decoded.sub);
+					});
 				}
-			});
-
-			ws.on("error", (error) => {
-				console.error("WebSocket error:", error);
-			});
-
-			ws.on("close", () => {
-				for (const clients of this.#deviceClients.values()) {
-					clients.delete(ws);
-				}
-				console.log("Client disconnected:", userId);
 			});
 		});
 

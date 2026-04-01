@@ -4,16 +4,10 @@ import { WebSocketService } from "./service/WebSocketService.js";
 import { router } from "./service/Routes.js";
 
 const express = require("express");
-const cors = require("cors");
 
 const app = express();
 
-var corsOptions = {
-  origin: //frontend loclahost here
-};
-
-app.use(cors(corsOptions));
-app.use(express.json())
+app.use(express.json());
 
 app.use("/", router);
 
