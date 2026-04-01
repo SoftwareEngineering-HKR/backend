@@ -11,7 +11,9 @@
 		"dev": "npx nodemon --env-file=.env ./src/index.js",
 		"lint": "eslint . --fix",
 		"prepare": "husky",
-		"test": "mocha \"test/**/*.js\""
+		"test": "mocha \"test/**/*.js\"",
+		"test_unit": "mocha \"test/unit/*.js\"",
+		"test_inte": "mocha \"test/integration/*.js\""
 	},
 	"lint-staged": {
 		"**/*.{js,jsx,ts,tsx}": "eslint --fix"
@@ -33,6 +35,7 @@
 		"express": "^5.2.1",
 		"jsonwebtoken": "^9.0.3",
 		"pg": "^8.20.0",
+		"webbluetooth": "^3.6.0",
 		"ws": "^8.19.0"
 	}
 }

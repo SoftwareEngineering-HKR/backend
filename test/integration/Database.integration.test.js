@@ -1,35 +1,38 @@
+import { expect } from "chai";
 import dbs from "../../src/service/DatabaseService.js";
 
-async function runTest() {
-	try {
-		console.log("Running database test...");
+describe("DatabaseService integration", function () {
+    before(async () => {
+        await dbs.connect();
+    });
 
-		await dbs.connect();
-
-		const time = await dbs.query("SELECT NOW()");
-		console.log("Database responded:", time);
-
-		await dbs.query(`
-          CREATE TABLE IF NOT EXISTS test_table (
-            id SERIAL PRIMARY KEY,
-            name TEXT
-          )
+    beforeEach(async () => {
+        await dbs.query(`
+            CREATE TABLE IF NOT EXISTS test_table (
+                id SERIAL PRIMARY KEY,
+                name TEXT
+            )
         `);
 
-		const inserted = await dbs.query("INSERT INTO test_table(name) VALUES($1) RETURNING *", ["test entry"]);
+        await dbs.query("DELETE FROM test_table");
+    });
 
-		console.log("Inserted:", inserted);
+    after(async () => {
+        await dbs.query("DROP TABLE IF EXISTS test_table");
+    });
 
-		const rows = await dbs.query("SELECT * FROM test_table");
-		console.log("All rows:", rows);
+    it("should insert and fetch rows from the database", async () => {
+        const inserted = await dbs.query(
+            "INSERT INTO test_table(name) VALUES($1) RETURNING *",
+            ["test entry"]
+        );
 
-		console.log("Database test successful");
+        expect(inserted).to.have.lengthOf(1);
+        expect(inserted[0].name).to.equal("test entry");
 
-		process.exit(0);
-	} catch (err) {
-		console.error("Database test failed:", err);
-		process.exit(1);
-	}
-}
+        const rows = await dbs.query("SELECT * FROM test_table");
 
-runTest();
+        expect(rows).to.have.lengthOf(1);
+        expect(rows[0].name).to.equal("test entry");
+    });
+});

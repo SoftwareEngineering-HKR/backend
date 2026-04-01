@@ -1,6 +1,8 @@
 import DeviceModel from "../model/DeviceModel.js";
 import RoomModel from "../model/RoomModel.js";
 import UserDeviceModel from "../model/UserDevicesModel.js";
+import UserModel from "../model/UserModel.js";
+import BluetoothService from "../service/BluetoothService.js";
 
 export class WSHandler {
 	/**
@@ -103,13 +105,13 @@ export class WSHandler {
 		const userDevices = await UserDeviceModel.getDevicesByUser(userId);
 		if (!userDevices.includes(id)) {
 			console.debug(`User ${userId} attempted to update device ${id} without access`);
-			return this.#constructFrontendResponse(403, "User has no access to requested device.");
+			return this.constructFrontendResponse(403, "User has no access to requested device.");
 		}
 		try {
 			await DeviceModel.setValue(id, value);
 		} catch (e) {
 			console.error(e);
-			return this.#constructFrontendResponse(500, "Device could not be contacted.");
+			return this.constructFrontendResponse(500, "Device could not be contacted.");
 		}
 	}
 
@@ -135,11 +137,48 @@ export class WSHandler {
 	}
 
 	/**
+	 * Call to promoteUser in user model
+	 * @param {JSON} data object payload from message
+	 */
+	async setUserRole(data) {
+		try {
+			await UserModel.setUserRole(data.userName, data.role);
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
+	/**
+	 * Call to deleteUser in user model
+	 * @param {JSON} data object payload from message
+	 */
+	async deleteUser(data) {
+		try {
+			await UserModel.deleteUser(data.userName);
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
+	/**
+	 * Call to add user to a specific device
+	 * @param {JSON} data object payload from message
+	 */
+	async addUserToDevice(data) {
+		try {
+			await UserDeviceModel.addUserToDevice(data.userId, data.deviceId);
+			return this.constructFrontendResponse(200);
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to connect user to device");
+		}
+	}
+	/**
 	 * Response messages for the frontend after user actions
 	 * @param {number} statusCode - the status code
 	 * @param {string | undefined} message - optional message to the frontend
 	 */
-	#constructFrontendResponse(statusCode, message = "") {
+	constructFrontendResponse(statusCode, message = "") {
 		return {
 			type: "action response",
 			payload: {
@@ -148,6 +187,32 @@ export class WSHandler {
 			},
 		};
 	}
+
+	/**
+	 * Method to get available bluetooth device
+	 */
+	async get_bluetooth_devices() {
+		try {
+			const devices = await BluetoothService.scan();
+			return { type: "bluetooth devices", payload: { devices } };
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Bluetooth scan failed.");
+		}
+	}
+
+	/**
+	 * Method to connect to a bluetooth device
+	 * @param {JSON} data - object payload from message
+	 */
+	async connect_bluetooth_device(data) {
+		try {
+			await BluetoothService.connectDevice(data.id);
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Bluetooth connection to device failed.");
+		}
+	}
 }
 
 export const handler = new WSHandler();
@@ -155,6 +220,7 @@ export const handler = new WSHandler();
 /**Message handeling
  * @param {JSON} type the message type
  * @param {JSON} payload the message payload
+ * @param {JSON} userId of the user that sent the message
  */
 export const messagehandler = async (type, payload, userId) => {
 	const handlers = {
@@ -167,8 +233,30 @@ export const messagehandler = async (type, payload, userId) => {
 		"update value": handler.update_value.bind(handler),
 		"get devices": handler.get_device.bind(handler),
 		"get room": handler.get_room.bind(handler),
+		"get bluetooth devices": handler.get_bluetooth_devices.bind(handler),
+		"connect bluetooth device": handler.connect_bluetooth_device.bind(handler),
+		"update user role": handler.setUserRole.bind(handler),
+		"delete user": handler.deleteUser.bind(handler),
+		"add user to device": handler.addUserToDevice.bind(handler),
 	};
 
 	const handelfunction = handlers[type];
 	return await handelfunction(payload, userId);
+};
+
+export const permissions = {
+	"create room": ["admin"],
+	"create device": ["admin"],
+	"update device": ["admin"],
+	"update room": ["admin"],
+	"delete room": ["admin"],
+	"delete device": ["admin"],
+	"update value": ["admin", "user"],
+	"get devices": ["admin", "user"],
+	"get room": ["admin"],
+	"get bluetooth devices": ["admin"],
+	"connect bluetooth device": ["admin"],
+	"update user role": ["admin"],
+	"delete user": ["admin"],
+	"add user to device": ["admin"],
 };

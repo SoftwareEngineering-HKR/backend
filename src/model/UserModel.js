@@ -121,7 +121,7 @@ class UserModel {
 			arg = [username, hashedPassword];
 		}
 		const result = await dbs.query(sql, arg);
-		const user = this.getUserById(result.rows[0].id)
+		const user = this.getUserById(result.rows[0].id);
 		return user;
 	}
 
@@ -143,6 +143,7 @@ class UserModel {
 	 * Update the password.
 	 *
 	 * @param {string} userId - The ID of the user to update.
+	 * @throws {Error} - If password is incorrect
 	 * @returns {Promise<boolean>} True if the update was successful, false otherwise.
 	 */
 	async updatePassword(userName, password, newPassword) {
@@ -163,13 +164,17 @@ class UserModel {
 	/**
 	 * Delete a user from the database.
 	 *
-	 * @param {string} userId - The ID of the user to delete.
+	 * @param {string} userName - The username of the user to be delete.
+	 * @throws {Error} - No user found or error deleting user
 	 * @returns {Promise<boolean>} True if the deletion was successful, false otherwise.
 	 */
-	async deleteUser(userId) {
-		let sql = "DELETE FROM users WHERE id = $1";
-		const arg = [userId];
+	async deleteUser(userName) {
+		let sql = "DELETE FROM users WHERE username = $1";
+		const arg = [userName];
 		const result = await dbs.query(sql, arg);
+		if (result.rowCount === 0) {
+			throw new Error("Unable to delete user.");
+		}
 		return result.rowCount > 0;
 	}
 	/** Login a user
@@ -191,6 +196,23 @@ class UserModel {
 		}
 
 		return user;
+	}
+
+	/** Promote a user to admin role
+	 *
+	 * @param {string} userName - username for the user.
+	 * @param {string} role - new role for the user.
+	 * @throws {Error} - If username is wrong or user already has the desired role
+	 * @return {Promise<boolean>} - Returns true if promotion complete
+	 */
+	async setUserRole(userName, role) {
+		const sql = "UPDATE users SET type = $1 WHERE user = $2 AND type != $1";
+		const arg = [role, userName];
+		const result = await dbs.query(sql, arg);
+		if (result.rowCount === 0) {
+			throw new Error("Wrong username or user already have desired role.");
+		}
+		return result.rowCount > 0;
 	}
 }
 

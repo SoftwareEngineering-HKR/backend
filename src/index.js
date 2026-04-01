@@ -2,8 +2,8 @@ import { NetworkDiscoveryService } from "./service/NetworkDiscoveryService.js";
 import { MqttBrokerService } from "./service/MqttBrokerService.js";
 import { WebSocketService } from "./service/WebSocketService.js";
 import { router } from "./service/Routes.js";
-
-const express = require("express");
+import BluetoothService from "./service/BluetoothService.js";
+import express from "express";
 
 const app = express();
 
@@ -19,3 +19,9 @@ const broker = new MqttBrokerService();
 broker.start();
 const webSocketService = new WebSocketService();
 webSocketService.startWebSocket();
+
+try {
+	await BluetoothService.start();
+} catch (error) {
+	console.error(error);
+}

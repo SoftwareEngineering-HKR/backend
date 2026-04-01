@@ -1,8 +1,9 @@
 import WebSocket, { WebSocketServer } from "ws";
-import { messagehandler, handler } from "../handler/WSHandler.js";
+import { messagehandler, handler, permissions } from "../handler/WSHandler.js";
 import DeviceModel from "../model/DeviceModel.js";
 import jwt from "jsonwebtoken";
 import url from "url";
+import UserDevicesModel from "../model/UserDevicesModel.js";
 
 export class WebSocketService {
 	/** @type {number} */
@@ -11,6 +12,8 @@ export class WebSocketService {
 	#wss = new WebSocketServer({ port: this.#PORT });
 	/** @type {Map<string, Set<WebSocket>>} */
 	#deviceClients = new Map();
+	/** @type {Map<string, Set<WebSocket>>} */
+	#socketClients = new Map();
 
 	/**
 	 * Start the websocket server so that the frontend can communicate with the backend
@@ -23,8 +26,9 @@ export class WebSocketService {
 
 		// TODO: this should be replaced later by parsing the UserID from the access token
 		//const userId = "6a77949f-4a2d-4d17-9fc2-62c7249d1a58";
-
+		//const userRole = "admin";
 		this.#wss.on("connection", (ws, req) => {
+			// TODO: this should be replaced later by parsing the userRole from the access token
 			console.log("Client connected");
 			var token = url.parse(req.url, true).query.token;
 
@@ -53,10 +57,47 @@ export class WebSocketService {
 						console.log("Client disconnected:", decoded.sub);
 					});
 				}
+
+				if (!this.#socketClients.has(decoded.sub)) {
+					this.#socketClients.set(decoded.sub, new Set());
+				}
+				this.#socketClients.get(decoded.sub).add(ws);
+
+				ws.on("message", async (data) => {
+					const mesg = JSON.parse(data);
+					if (!permissions[mesg.type].includes(decoded.role)) {
+						ws.send(JSON.stringify(handler.constructFrontendResponse(403, "Permission denied!")));
+					}
+					const response = await messagehandler(mesg.type, mesg.payload, decoded.sub);
+					if (response && ws.readyState === WebSocket.OPEN) {
+						ws.send(JSON.stringify(response));
+					}
+				});
+
+				ws.on("error", (error) => {
+					console.error("WebSocket error:", error);
+				});
+
+				ws.on("close", () => {
+					for (const clients of this.#deviceClients.values()) {
+						clients.delete(ws);
+					}
+					this.#socketClients.get(decoded.sub).delete(ws);
+					console.log("Client disconnected:", decoded.sub);
+				});
 			});
 		});
 
-		//TODO: Update deviceClients map when a new connection between a device and user has been created (listen to event from DeviceUserModel)
+		UserDevicesModel.on("addedUserToID", ({ userID, device }) => {
+			this.#socketClients.get(userID).forEach((ws) => {
+				const clients = this.#deviceClients.get(device.id);
+				if (!clients) {
+					this.#deviceClients.set(device.id, new Set());
+				}
+				this.#deviceClients.get(device.id).add(ws);
+			});
+			this.#sendDeviceMessageToFrontend(device.id, "added new device", device);
+		});
 
 		DeviceModel.on("updateValue", ({ deviceID, value }) => {
 			this.#sendDeviceMessageToFrontend(deviceID, "update value", value);

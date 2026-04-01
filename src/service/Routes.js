@@ -1,7 +1,7 @@
 import express from "express";
-import authmodel from "../middleware/jwt";
-import UserModel from "../model/UserModel";
-import RefreshModel from "../model/RefreshModel";
+import authmodel from "../middleware/JwtService.js";
+import UserModel from "../model/UserModel.js";
+import RefreshModel from "../model/RefreshModel.js";
 import jwt from "jsonwebtoken";
 
 export const router = express.Router();
