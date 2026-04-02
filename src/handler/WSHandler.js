@@ -143,8 +143,10 @@ export class WSHandler {
 	async setUserRole(data) {
 		try {
 			await UserModel.setUserRole(data.userName, data.role);
+			return this.constructFrontendResponse(200, "Promoted users successfully!");
 		} catch (e) {
 			console.error(e);
+			return this.constructFrontendResponse(500, "Error, could not update the user to desired role!");
 		}
 	}
 
@@ -155,8 +157,10 @@ export class WSHandler {
 	async deleteUser(data) {
 		try {
 			await UserModel.deleteUser(data.userName);
+			return this.constructFrontendResponse(200, "Deleted user successfully!");
 		} catch (e) {
 			console.error(e);
+			return this.constructFrontendResponse(500, "Error in deleting user!");
 		}
 	}
 
