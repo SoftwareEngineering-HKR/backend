@@ -20,5 +20,5 @@ authmodel.createAccessJWToken = (userId, role) => {
  * @returns {string} JWT refresh token
  */
 authmodel.createRefreshToken = (userId, role, device) => {
-	return jwt.sign({ sub: userId, role: role, device: device }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
+	return jwt.sign({ sub: userId, role: role, ip: device }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
 };

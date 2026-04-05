@@ -61,7 +61,7 @@ class UserModel {
 		if (result.rowCount == 0) {
 			return null;
 		}
-		const row = result.rows[0];
+		const row = result[0];
 		return { id: row.id, type: row.type, password: row.password };
 	}
 
@@ -73,14 +73,14 @@ class UserModel {
 	 * @returns {Promise<object>} A user if it exists or false.
 	 */
 	async getUserById(userId) {
-		let sql = "SELECT username FROM users WHERE id = $1";
+		let sql = "SELECT * FROM users WHERE id = $1";
 		const arg = [userId];
 		const result = await dbs.query(sql, arg);
 		if (result.rowCount == 0) {
 			throw new Error("No user was found");
 		}
-		const row = result.rows[0];
-		return row.username;
+		const row = result[0];
+		return row;
 	}
 
 	/**
@@ -110,6 +110,7 @@ class UserModel {
 	 * @returns {Promise<user>} The user of the newly created user.
 	 */
 	async addUser(username, password, type = "user") {
+		console.log(username, password, type);
 		const hashedPassword = await this.hashpass(password);
 		let sql;
 		let arg;
@@ -121,7 +122,7 @@ class UserModel {
 			arg = [username, hashedPassword];
 		}
 		const result = await dbs.query(sql, arg);
-		const user = this.getUserById(result.rows[0].id);
+		const user = await this.getUserById(result[0].id);
 		return user;
 	}
 

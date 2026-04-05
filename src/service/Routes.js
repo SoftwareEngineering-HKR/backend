@@ -6,16 +6,20 @@ import jwt from "jsonwebtoken";
 
 export const router = express.Router();
 
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
 	const { username, password, ip } = req.body;
-	var date = new Date();
 
 	try {
-		const user = UserModel.login(username, password);
+		const user = await UserModel.login(username, password);
 		const accessToken = authmodel.createAccessJWToken(user.id, user.type);
 		const refreshToken = authmodel.createRefreshToken(user.id, user.type, ip);
 
-		RefreshModel.addToken(refreshToken, user.id, date.setDate(date.getDate() + 7), ip);
+		await RefreshModel.addToken(
+			refreshToken,
+			user.id,
+			new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+			ip,
+		);
 
 		res.cookie("jwt", refreshToken, {
 			httpOnly: true,
@@ -31,22 +35,26 @@ router.post("/login", (req, res) => {
 	}
 });
 
-router.post("/refresh", (req, res) => {
-	var date = new Date();
+router.post("/refresh", async (req, res) => {
 	const refreshToken = req.cookies.jwt;
-	const oldToken = RefreshModel.getToken(refreshToken);
+	const oldToken = await RefreshModel.getToken(refreshToken);
 	if (!oldToken) {
 		return res.status(403).json({ message: "Refresh token invalid/revoked" });
 	}
-	RefreshModel.revokeToken(oldToken);
+	await RefreshModel.revokeToken(oldToken);
 	jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (error, decoded) => {
 		if (error) {
 			return res.status(406).json({ message: "Unauthorized" });
 		} else {
-			const accessToken = authmodel.createAccessJWToken(decoded.id, decoded.type);
-			const newRefreshToken = authmodel.createRefreshToken(decoded.id, decoded.type, decoded.ip);
+			const accessToken = authmodel.createAccessJWToken(decoded.sub, decoded.role);
+			const newRefreshToken = authmodel.createRefreshToken(decoded.sub, decoded.role, decoded.ip);
 
-			RefreshModel.addToken(newRefreshToken, decoded.id, date.setDate(date.getDate() + 7), decoded.ip);
+			RefreshModel.addToken(
+				newRefreshToken,
+				decoded.sub,
+				new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+				decoded.ip,
+			);
 			res.cookie("jwt", newRefreshToken, {
 				httpOnly: true,
 				sameSite: "lax",
@@ -57,23 +65,30 @@ router.post("/refresh", (req, res) => {
 	});
 });
 
-router.post("/logout", (req, res) => {
-	const refreshToken = req.cookies.refreshToken;
-	RefreshModel.revokeToken(refreshToken);
-
-	res.clearCookie("refreshToken");
-	res.json({ message: "Logged out successfully" });
+router.post("/logout", async (req, res) => {
+	const authHeader = req.headers["authorization"];
+	if (!authHeader) return res.status(401).json({ message: "No access token provided" });
+	const token = authHeader.split(" ")[1];
+	let verify = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+	if (!verify) {
+		return res.json({ message: "acesstoken not valid" });
+	}
+	const refreshToken = req.cookies.jwt;
+	const revkoed = await RefreshModel.revokeToken(refreshToken);
+	if (revkoed) {
+		res.clearCookie("jwt");
+		res.json({ message: "Logged out successfully" });
+	}
 });
 
-router.post("/signup", (req, res) => {
-	var date = new Date();
+router.post("/signup", async (req, res) => {
 	const { username, password, type, ip } = req.body;
 	try {
-		const user = UserModel.addUser(username, password, type);
+		const user = await UserModel.addUser(username, password, type);
 		const accessToken = authmodel.createAccessJWToken(user.id, user.type);
 		const refreshToken = authmodel.createRefreshToken(user.id, user.type, ip);
 
-		RefreshModel.addToken(refreshToken, user.id, date.setDate(date.getDate() + 7), ip);
+		RefreshModel.addToken(refreshToken, user.id, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), ip);
 
 		res.cookie("jwt", refreshToken, {
 			httpOnly: true,

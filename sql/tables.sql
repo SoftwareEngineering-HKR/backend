@@ -39,9 +39,9 @@ CREATE TABLE user_devices (
 );
 
 CREATE TABLE refresh_tokens (
-    token NOT NULL VARCHAR(50) UNIQUE,
-    user_id NOT NULL NUMERIC,
-    expires NOT NULL DATE,
+    token VARCHAR(512) NOT NULL UNIQUE,
+    user_id UUID NOT NULL,
+    expires DATE NOT NULL,
     revoked BOOLEAN DEFAULT false,
-    ip VARCHAR(15) NOT NULL,
-)
+    ip VARCHAR(15) NOT NULL
+);
