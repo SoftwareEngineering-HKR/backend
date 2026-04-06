@@ -41,28 +41,27 @@ router.post("/refresh", async (req, res) => {
 	if (!oldToken) {
 		return res.status(403).json({ message: "Refresh token invalid/revoked" });
 	}
-	await RefreshModel.revokeToken(oldToken);
-	jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (error, decoded) => {
-		if (error) {
-			return res.status(406).json({ message: "Unauthorized" });
-		} else {
-			const accessToken = authmodel.createAccessJWToken(decoded.sub, decoded.role);
-			const newRefreshToken = authmodel.createRefreshToken(decoded.sub, decoded.role, decoded.ip);
 
-			RefreshModel.addToken(
-				newRefreshToken,
-				decoded.sub,
-				new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-				decoded.ip,
-			);
-			res.cookie("jwt", newRefreshToken, {
-				httpOnly: true,
-				sameSite: "lax",
-				secure: false,
-			});
-			return res.json({ accessToken });
-		}
-	});
+	try {
+		await RefreshModel.revokeToken(refreshToken);
+		const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+		const accessToken = authmodel.createAccessJWToken(decoded.sub, decoded.role);
+		const newRefreshToken = authmodel.createRefreshToken(decoded.sub, decoded.role, decoded.ip);
+		await RefreshModel.addToken(
+			newRefreshToken,
+			decoded.sub,
+			new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+			decoded.ip,
+		);
+		res.cookie("jwt", newRefreshToken, {
+			httpOnly: true,
+			sameSite: "lax",
+			secure: false,
+		});
+		return res.json({ accessToken });
+	} catch {
+		return res.status(406).json({ message: "Unauthorized" });
+	}
 });
 
 router.post("/logout", async (req, res) => {
