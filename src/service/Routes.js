@@ -27,8 +27,7 @@ router.post("/login", async (req, res) => {
 			secure: false,
 		});
 		return res.json({ accessToken });
-	} catch (err) {
-		console.log(err);
+	} catch {
 		return res.status(406).json({
 			message: "Invalid credentials",
 		});
@@ -60,7 +59,7 @@ router.post("/refresh", async (req, res) => {
 		});
 		return res.json({ accessToken });
 	} catch {
-		return res.status(406).json({ message: "Unauthorized" });
+		return res.status(403).json({ message: "Refresh token invalid/revoked" });
 	}
 });
 
@@ -70,13 +69,15 @@ router.post("/logout", async (req, res) => {
 	const token = authHeader.split(" ")[1];
 	let verify = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 	if (!verify) {
-		return res.json({ message: "acesstoken not valid" });
+		return res.status(406).json({ message: "acesstoken not valid" });
 	}
 	const refreshToken = req.cookies.jwt;
 	const revkoed = await RefreshModel.revokeToken(refreshToken);
 	if (revkoed) {
 		res.clearCookie("jwt");
 		res.json({ message: "Logged out successfully" });
+	} else {
+		console.log("something went wrong");
 	}
 });
 
@@ -95,8 +96,7 @@ router.post("/signup", async (req, res) => {
 			secure: false,
 		});
 		return res.json({ accessToken });
-	} catch (err) {
-		console.log(err);
+	} catch {
 		return res.status(406).json({
 			message: "Invalid credentials",
 		});

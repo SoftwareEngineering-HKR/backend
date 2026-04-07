@@ -23,10 +23,10 @@ class RefreshModel {
 	}
 
 	async revokeToken(token) {
-		console.log(token);
-		const sql = "UPDATE refresh_tokens SET revoked = true WHERE token = $1";
+		const sql = "UPDATE refresh_tokens SET revoked = true WHERE token = $1 RETURNING revoked";
 		const args = [token];
 		const result = await dbs.query(sql, args);
+		console.log(result);
 		if (result.length > 0) {
 			return true;
 		} else {
