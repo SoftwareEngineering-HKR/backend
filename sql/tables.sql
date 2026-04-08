@@ -1,5 +1,5 @@
 CREATE TYPE type_of_user AS ENUM ('admin', 'user');
-CREATE TYPE type_of_device AS ENUM ('light', 'button', 'gas', 'steam', 'humidity', 'buzz', 'servo', 'fan', 'display');
+CREATE TYPE type_of_device AS ENUM ('light', 'button', 'gas', 'steam', 'humidity', 'buzz', 'servo', 'fan', 'display', 'photo', 'motion', 'temperature', 'tilt', 'brightness', 'door', 'window');
 
 CREATE TABLE users (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
@@ -20,12 +20,13 @@ CREATE TABLE devices (
 	online boolean,
     ip VARCHAR(15) NOT NULL,
     name VARCHAR(50),
-    description VARCHAR(500)
+    description VARCHAR(500),
+	sensor boolean
 );
 
 CREATE TABLE scales (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-    id_device VARCHAR(17) NOT NULL REFERENCES devices(id),
+    id_device VARCHAR(17) NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
     value NUMERIC,
     max_value NUMERIC,
     min_value NUMERIC,

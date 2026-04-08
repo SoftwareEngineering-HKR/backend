@@ -398,6 +398,7 @@ export class MqttBrokerService {
 						null,
 						payload.maxVal,
 						payload.minVal,
+						payload.sensor,
 					);
 				} else {
 					await this.#deviceModel.updateDeviceStatus(payload.id, true);

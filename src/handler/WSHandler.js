@@ -171,7 +171,7 @@ export class WSHandler {
 	async addUserToDevice(data) {
 		try {
 			await UserDeviceModel.addUserToDevice(data.userId, data.deviceId);
-			return this.constructFrontendResponse(200);
+			return this.constructFrontendResponse(200, "Successfully assigned device to user!");
 		} catch (e) {
 			console.error(e);
 			return this.constructFrontendResponse(500, "Failed to connect user to device");
@@ -212,6 +212,7 @@ export class WSHandler {
 	async connect_bluetooth_device(data) {
 		try {
 			await BluetoothService.connectDevice(data.id);
+			return this.constructFrontendResponse(200, "Bluetooth device successfully connected to network!");
 		} catch (e) {
 			console.error(e);
 			return this.constructFrontendResponse(500, "Bluetooth connection to device failed.");
