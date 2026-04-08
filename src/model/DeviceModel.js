@@ -58,16 +58,17 @@ class DeviceModel extends EventEmitter {
 	 * @param {string} value - value for the initial scale
 	 * @param {string} max - max value for the scale
 	 * @param {string} min - min value for the scale
+	 * @param {string} sensor - string representation of boolean to show if device is a sensor
 	 * @return {Promise<string>} - returns id for the device
 	 * @throws {Error} - If it was not possible to add a device
 	 */
 
-	async setDevice(id, id_room, type, online, ip, name, description, value, max, min) {
+	async setDevice(id, id_room, type, online, ip, name, description, value, max, min, sensor) {
 		try {
 			await dbs.query("BEGIN");
 			await dbs.query(
-				"INSERT INTO devices (id, id_room, type, online, ip, name, description) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-				[id, id_room, type, online, ip, name, description],
+				"INSERT INTO devices (id, id_room, type, online, ip, name, description, sensor) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+				[id, id_room, type, online, ip, name, description, sensor],
 			);
 
 			const scaleResult = await scale.setValue(id, value, min, max, dbs);
@@ -160,6 +161,8 @@ class DeviceModel extends EventEmitter {
 	 * @throws {Error} - if update was not successfull
 	 */
 	async setValue(id, newValue) {
+		const sensor = await this.checkifDeviceIsSensor(id);
+		if (sensor) throw new Error("Device's value cannot be modified.");
 		const { min_value, max_value } = await scale.getValue(id);
 		if (newValue > max_value || newValue < min_value) throw new Error("Value outside of allowed range.");
 		this.emit("sendPublish", { id, value: newValue });
@@ -198,6 +201,23 @@ class DeviceModel extends EventEmitter {
 	}
 
 	/**
+	 * Checks if device is a sensor
+	 * @param {string} id - UUID to identify the device
+	 * @return {Promise<boolean>} - returns true if device is sensor, else false
+	 * @throws {Error} - if query was not successfull
+	 */
+	async checkifDeviceIsSensor(id) {
+		const sql = "SELECT sensor FROM devices WHERE id = $1";
+		const args = [id];
+		const result = await dbs.query(sql, args);
+		if (!result.length) {
+			throw new Error("Device not found");
+		}
+
+		return result[0].sensor;
+	}
+
+	/**
 	 * Get current value of a device.
 	 * @param {string} id - ID to identify the device
 	 * @return {Promise<boolean>} - returns true if device exists, else false
@@ -225,6 +245,7 @@ class DeviceModel extends EventEmitter {
 				devices.ip,
 				devices.name,
 				devices.description,
+				devices.sensor,
 				scales.value,
 				scales.max_value,
 				scales.min_value,

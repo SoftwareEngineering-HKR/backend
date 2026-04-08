@@ -202,6 +202,7 @@ class BluetoothService {
 						null,
 						msg.maxVal,
 						msg.minVal,
+						msg.sensor,
 					);
 				} else {
 					await DeviceModel.updateDeviceStatus(bluetoothAddress, true);
