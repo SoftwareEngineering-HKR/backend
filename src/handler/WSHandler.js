@@ -213,6 +213,15 @@ export class WSHandler {
 			return this.constructFrontendResponse(500, "Bluetooth connection to device failed.");
 		}
 	}
+	async getUsers() {
+		try {
+			const users = await UserModel.getAllUsers();
+			return { type: "users", payload: { users } };
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to get users.");
+		}
+	}
 }
 
 export const handler = new WSHandler();
@@ -224,6 +233,7 @@ export const handler = new WSHandler();
  */
 export const messagehandler = async (type, payload, userId) => {
 	const handlers = {
+		"get users": handler.getUsers.bind(handler),
 		"create room": handler.create_room.bind(handler),
 		"create device": handler.create_device.bind(handler),
 		"update device": handler.update_device.bind(handler),
@@ -245,6 +255,7 @@ export const messagehandler = async (type, payload, userId) => {
 };
 
 export const permissions = {
+	"get users": ["admin"],
 	"create room": ["admin"],
 	"create device": ["admin"],
 	"update device": ["admin"],

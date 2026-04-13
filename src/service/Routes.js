@@ -82,9 +82,9 @@ router.post("/logout", async (req, res) => {
 });
 
 router.post("/signup", async (req, res) => {
-	const { username, password, type, ip } = req.body;
+	const { username, password, ip } = req.body;
 	try {
-		const user = await UserModel.addUser(username, password, type);
+		const user = await UserModel.addUser(username, password);
 		const accessToken = authmodel.createAccessJWToken(user.id, user.type);
 		const refreshToken = authmodel.createRefreshToken(user.id, user.type, ip);
 

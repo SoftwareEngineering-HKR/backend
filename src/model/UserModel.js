@@ -17,17 +17,6 @@ class UserModel {
 		const salt = 10;
 		return bcrypt.hash(plaintext, salt);
 	}
-	/**
-	 * Get all users from the database.
-	 *
-	 * @returns {Promise<Array>} An array of users.
-	 */
-	async getAllUsers() {
-		let sql = "SELECT id, username FROM users";
-		const arg = [];
-		const result = await dbs.query(sql, arg);
-		return result.rows;
-	}
 
 	/**
 	 * Get a specific user from the database based on the username.
@@ -45,6 +34,20 @@ class UserModel {
 		}
 		const row = result.rows[0];
 		return row.id;
+	}
+
+	/**
+	 * Get all users from the database.
+	 * @throws {Error} - If sql fail.
+	 * @returns {Promise<Array<Object>>} list of users.
+	 */
+	async getAllUsers() {
+		let sql = "SELECT * FROM users";
+		const results = await dbs.query(sql);
+		if (results.rowCount == 0) {
+			return null;
+		}
+		return results;
 	}
 
 	/**
@@ -106,21 +109,14 @@ class UserModel {
 	 *
 	 * @param {string} username - name of the user
 	 * @param {string} password - password the user choose
-	 * @param {string} type - type of user
 	 * @returns {Promise<user>} The user of the newly created user.
 	 */
-	async addUser(username, password, type = "user") {
-		console.log(username, password, type);
+	async addUser(username, password) {
 		const hashedPassword = await this.hashpass(password);
 		let sql;
 		let arg;
-		if (type === "admin") {
-			sql = "INSERT INTO users (username, password, type) VALUES ($1, $2, $3) RETURNING id";
-			arg = [username, hashedPassword, type];
-		} else {
-			sql = "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id";
-			arg = [username, hashedPassword];
-		}
+		sql = "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id";
+		arg = [username, hashedPassword];
 		const result = await dbs.query(sql, arg);
 		const user = await this.getUserById(result[0].id);
 		return user;

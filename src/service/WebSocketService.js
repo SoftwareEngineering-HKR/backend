@@ -35,28 +35,9 @@ export class WebSocketService {
 			jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
 				if (err) {
 					ws.close();
-				} else {
-					this.#updateDeviceConnectionMap(ws, decoded.sub);
-
-					ws.on("message", async (data) => {
-						const mesg = JSON.parse(data);
-						const response = await messagehandler(mesg.type, mesg.payload, decoded.sub);
-						if (response && ws.readyState === WebSocket.OPEN) {
-							ws.send(JSON.stringify(response));
-						}
-					});
-
-					ws.on("error", (error) => {
-						console.error("WebSocket error:", error);
-					});
-
-					ws.on("close", () => {
-						for (const clients of this.#deviceClients.values()) {
-							clients.delete(ws);
-						}
-						console.log("Client disconnected:", decoded.sub);
-					});
+					return;
 				}
+				this.#updateDeviceConnectionMap(ws, decoded.sub);
 
 				if (!this.#socketClients.has(decoded.sub)) {
 					this.#socketClients.set(decoded.sub, new Set());
@@ -64,13 +45,19 @@ export class WebSocketService {
 				this.#socketClients.get(decoded.sub).add(ws);
 
 				ws.on("message", async (data) => {
-					const mesg = JSON.parse(data);
-					if (!permissions[mesg.type].includes(decoded.role)) {
-						ws.send(JSON.stringify(handler.constructFrontendResponse(403, "Permission denied!")));
-					}
-					const response = await messagehandler(mesg.type, mesg.payload, decoded.sub);
-					if (response && ws.readyState === WebSocket.OPEN) {
-						ws.send(JSON.stringify(response));
+					try {
+						const mesg = JSON.parse(data);
+						if (!permissions[mesg.type].includes(decoded.role)) {
+							ws.send(JSON.stringify(handler.constructFrontendResponse(403, "Permission denied!")));
+						} else {
+							const response = await messagehandler(mesg.type, mesg.payload, decoded.sub);
+
+							if (response && ws.readyState === WebSocket.OPEN) {
+								ws.send(JSON.stringify(response));
+							}
+						}
+					} catch (e) {
+						console.error("Unexpected message", e);
 					}
 				});
 
@@ -96,7 +83,7 @@ export class WebSocketService {
 				}
 				this.#deviceClients.get(device.id).add(ws);
 			});
-			this.#sendDeviceMessageToFrontend(device.id, "added new device", device);
+			this.#sendDeviceMessageToFrontend(device.id, "added new device", device, userID);
 		});
 
 		DeviceModel.on("updateValue", ({ deviceID, value }) => {
@@ -140,8 +127,13 @@ export class WebSocketService {
 		}
 	}
 
-	async #sendDeviceMessageToFrontend(deviceID, type, content) {
-		const clients = this.#deviceClients.get(deviceID) ?? [];
+	async #sendDeviceMessageToFrontend(deviceID, type, content, userID = null) {
+		let clients;
+		if (!userID) {
+			clients = this.#deviceClients.get(deviceID) ?? [];
+		} else {
+			clients = this.#socketClients.get(userID) ?? [];
+		}
 		for (const ws of clients) {
 			if (ws.readyState === WebSocket.OPEN) {
 				ws.send(JSON.stringify({ type, payload: { deviceID, content } }));
