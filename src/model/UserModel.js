@@ -1,6 +1,5 @@
 import bcrypt from "bcrypt";
 import dbs from "../service/DatabaseService.js";
-import jwt from "../middleware/jwt.js";
 
 /**
  * Model for the User table
@@ -17,17 +16,6 @@ class UserModel {
 	async hashpass(plaintext) {
 		const salt = 10;
 		return bcrypt.hash(plaintext, salt);
-	}
-	/**
-	 * Get all users from the database.
-	 *
-	 * @returns {Promise<Array>} An array of users.
-	 */
-	async getAllUsers() {
-		let sql = "SELECT id, username FROM users";
-		const arg = [];
-		const result = await dbs.query(sql, arg);
-		return result.rows;
 	}
 
 	/**
@@ -49,6 +37,20 @@ class UserModel {
 	}
 
 	/**
+	 * Get all users from the database.
+	 * @throws {Error} - If sql fail.
+	 * @returns {Promise<Array<Object>>} list of users.
+	 */
+	async getAllUsers() {
+		let sql = "SELECT * FROM users";
+		const results = await dbs.query(sql);
+		if (results.rowCount == 0) {
+			return null;
+		}
+		return results;
+	}
+
+	/**
 	 * Get a specific user from the database based on the username.
 	 *
 	 * @param {string} username - The name of the user.
@@ -62,7 +64,7 @@ class UserModel {
 		if (result.rowCount == 0) {
 			return null;
 		}
-		const row = result.rows[0];
+		const row = result[0];
 		return { id: row.id, type: row.type, password: row.password };
 	}
 
@@ -74,14 +76,14 @@ class UserModel {
 	 * @returns {Promise<object>} A user if it exists or false.
 	 */
 	async getUserById(userId) {
-		let sql = "SELECT username FROM users WHERE id = $1";
+		let sql = "SELECT * FROM users WHERE id = $1";
 		const arg = [userId];
 		const result = await dbs.query(sql, arg);
 		if (result.rowCount == 0) {
 			throw new Error("No user was found");
 		}
-		const row = result.rows[0];
-		return row.username;
+		const row = result[0];
+		return row;
 	}
 
 	/**
@@ -107,22 +109,17 @@ class UserModel {
 	 *
 	 * @param {string} username - name of the user
 	 * @param {string} password - password the user choose
-	 * @param {string} type - type of user
-	 * @returns {Promise<number>} The ID of the newly created user.
+	 * @returns {Promise<user>} The user of the newly created user.
 	 */
-	async addUser(username, password, type = "user") {
+	async addUser(username, password) {
 		const hashedPassword = await this.hashpass(password);
 		let sql;
 		let arg;
-		if (type === "admin") {
-			sql = "INSERT INTO users (username, password, type) VALUES ($1, $2, $3) RETURNING id";
-			arg = [username, hashedPassword, type];
-		} else {
-			sql = "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id";
-			arg = [username, hashedPassword];
-		}
+		sql = "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id";
+		arg = [username, hashedPassword];
 		const result = await dbs.query(sql, arg);
-		return result.rows[0].id;
+		const user = await this.getUserById(result[0].id);
+		return user;
 	}
 
 	/**
@@ -194,8 +191,8 @@ class UserModel {
 		if (!success) {
 			throw new Error("Invalid username or password.");
 		}
-		const token = jwt.createToken({ id: user.id, user: userName, type: user.type });
-		return token;
+
+		return user;
 	}
 
 	/** Promote a user to admin role

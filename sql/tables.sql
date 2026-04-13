@@ -37,3 +37,11 @@ CREATE TABLE user_devices (
     id_device VARCHAR(17) NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
     PRIMARY KEY (id_user, id_device)
 );
+
+CREATE TABLE refresh_tokens (
+    token VARCHAR(512) NOT NULL UNIQUE,
+    user_id UUID NOT NULL,
+    expires DATE NOT NULL,
+    revoked BOOLEAN DEFAULT false,
+    ip VARCHAR(15) NOT NULL
+);
