@@ -44,5 +44,5 @@ CREATE TABLE refresh_tokens (
     user_id UUID NOT NULL,
     expires DATE NOT NULL,
     revoked BOOLEAN DEFAULT false,
-    ip VARCHAR(15) NOT NULL
+    ip VARCHAR(45) NOT NULL
 );

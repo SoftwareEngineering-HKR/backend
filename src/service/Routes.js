@@ -7,7 +7,8 @@ import jwt from "jsonwebtoken";
 export const router = express.Router();
 
 router.post("/login", async (req, res) => {
-	const { username, password, ip } = req.body;
+	const { username, password } = req.body;
+	const ip = req.ip;
 
 	try {
 		const user = await UserModel.login(username, password);
@@ -82,7 +83,8 @@ router.post("/logout", async (req, res) => {
 });
 
 router.post("/signup", async (req, res) => {
-	const { username, password, ip } = req.body;
+	const { username, password } = req.body;
+	const ip = req.ip;
 	try {
 		const user = await UserModel.addUser(username, password);
 		const accessToken = authmodel.createAccessJWToken(user.id, user.type);
