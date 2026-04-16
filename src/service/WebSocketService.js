@@ -86,6 +86,16 @@ export class WebSocketService {
 			this.#sendDeviceMessageToFrontend(device.id, "added new device", device, userID);
 		});
 
+		UserDevicesModel.on("deletedUserFromDevice", ({ userID, device }) => {
+			this.#socketClients.get(userID).forEach((ws) => {
+				const clients = this.#deviceClients.get(device.id);
+				if (!clients) {
+					return;
+				}
+				clients.delete(ws)
+			});
+			this.#sendDeviceMessageToFrontend(device.id, "removed device from user", device, userID);
+		});
 		DeviceModel.on("updateValue", ({ deviceID, value }) => {
 			this.#sendDeviceMessageToFrontend(deviceID, "update value", value);
 		});

@@ -177,6 +177,17 @@ export class WSHandler {
 			return this.constructFrontendResponse(500, "Failed to connect user to device");
 		}
 	}
+
+	async deleteUserFromDevice(data){
+		try{
+			await UserDeviceModel.deleteUserFromDevice(data.userId, data.deviceId);
+			return this.constructFrontendResponse(200, "Successfully deleted user from device!");
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to remove user from device.");
+		}
+	}
+	
 	/**
 	 * Response messages for the frontend after user actions
 	 * @param {number} statusCode - the status code
@@ -227,6 +238,8 @@ export class WSHandler {
 			return this.constructFrontendResponse(500, "Failed to get users.");
 		}
 	}
+
+
 }
 
 export const handler = new WSHandler();
@@ -253,6 +266,7 @@ export const messagehandler = async (type, payload, userId) => {
 		"update user role": handler.setUserRole.bind(handler),
 		"delete user": handler.deleteUser.bind(handler),
 		"add user to device": handler.addUserToDevice.bind(handler),
+		"deletedUserFromDevice": handler.deleteUserFromDevice.bind(handler),
 	};
 
 	const handelfunction = handlers[type];
@@ -275,4 +289,5 @@ export const permissions = {
 	"update user role": ["admin"],
 	"delete user": ["admin"],
 	"add user to device": ["admin"],
+	"deletedUserFromDevice": ["admin"]
 };
