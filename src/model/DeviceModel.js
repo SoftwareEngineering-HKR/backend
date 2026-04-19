@@ -279,6 +279,50 @@ class DeviceModel extends EventEmitter {
 		const sql = "UPDATE devices SET online = false WHERE ip = 'bluetooth'";
 		await dbs.query(sql);
 	}
+
+	/**
+	 * Gets all devices with with connected scales and users
+	 * @return {Promise<Object[]>}
+	 * @throws {Error} - if query was not successful
+	 */
+	async getAllDevices() {
+		const sql = `
+	SELECT
+		devices.id,
+		rooms.name AS room,
+		devices.type,
+		devices.online,
+		devices.ip,
+		devices.name,
+		devices.description,
+		devices.sensor,
+		scales.value,
+		scales.max_value,
+		scales.min_value,
+		scales.name AS scale_name,
+		COALESCE(
+			(
+				SELECT json_agg(
+					jsonb_build_object(
+						'id', u.id,
+						'username', u.username,
+						'type', u.type
+					)
+				)
+				FROM users u
+				JOIN user_devices ud ON u.id = ud.id_user
+				WHERE ud.id_device = devices.id
+			),
+			'[]'
+		) AS users
+	FROM devices
+	LEFT JOIN rooms ON devices.id_room = rooms.id
+	LEFT JOIN scales ON devices.id = scales.id_device
+	GROUP BY devices.id, scales.id, rooms.id
+	`;
+		const result = await dbs.query(sql);
+		return result;
+	}
 }
 
 export default new DeviceModel();
