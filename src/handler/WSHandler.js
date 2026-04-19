@@ -71,6 +71,19 @@ export class WSHandler {
 		}
 	}
 
+	/**
+	 * Handler to fetch all created rooms from the database
+	 */
+	async get_all_rooms() {
+		try {
+			const rooms = await RoomModel.getAllRooms();
+			return { type: "rooms", payload: { rooms } };
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Could not get all rooms.");
+		}
+	}
+
 	/**call to deleteRoom in room model
 	 * @param {JSON} data object payload from message
 	 */
@@ -242,6 +255,7 @@ export const messagehandler = async (type, payload, userId) => {
 		"create room": handler.create_room.bind(handler),
 		"create device": handler.create_device.bind(handler),
 		"update device": handler.update_device.bind(handler),
+		"get all rooms": handler.get_all_rooms.bind(handler),
 		"update room": handler.update_room.bind(handler),
 		"delete room": handler.delete_room.bind(handler),
 		"delete device": handler.delete_device.bind(handler),
@@ -270,6 +284,7 @@ export const permissions = {
 	"update value": ["admin", "user"],
 	"get devices": ["admin", "user"],
 	"get room": ["admin"],
+	"get all rooms": ["admin", "user"],
 	"get bluetooth devices": ["admin"],
 	"connect bluetooth device": ["admin"],
 	"update user role": ["admin"],
