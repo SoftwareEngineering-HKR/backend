@@ -25,6 +25,20 @@ class RoomModel {
 	}
 
 	/**
+	 * Gets the all rooms of the room
+	 * @return {Promise<Array<Object>} - returns an array of rooms
+	 * @throws {Error} - if fetching rooms failed
+	 */
+	async getAllRooms() {
+		let sql = "SELECT * FROM rooms";
+		const result = await dbs.query(sql, []);
+		if (result.rowCount == 0) {
+			throw new Error("Failed to get all rooms");
+		}
+		return result;
+	}
+
+	/**
 	 * Set the name for the room
 	 * @param {string} name - the name of the room
 	 * @return {Promise <{id: string, name: string }>} - returns id and name for the room
