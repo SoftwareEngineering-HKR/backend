@@ -84,6 +84,16 @@ export class WSHandler {
 		}
 	}
 
+	async get_all_device_info() {
+		try {
+			const devices = await DeviceModel.getAllDevices();
+			return { type: "device info", payload: { devices } };
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Could not get device info.");
+		}
+	}
+
 	/**call to deleteRoom in room model
 	 * @param {JSON} data object payload from message
 	 */
@@ -261,6 +271,7 @@ export const messagehandler = async (type, payload, userId) => {
 		"delete device": handler.delete_device.bind(handler),
 		"update value": handler.update_value.bind(handler),
 		"get devices": handler.get_device.bind(handler),
+		"get all device info": handler.get_all_device_info.bind(handler),
 		"get room": handler.get_room.bind(handler),
 		"get bluetooth devices": handler.get_bluetooth_devices.bind(handler),
 		"connect bluetooth device": handler.connect_bluetooth_device.bind(handler),
@@ -283,6 +294,7 @@ export const permissions = {
 	"delete device": ["admin"],
 	"update value": ["admin", "user"],
 	"get devices": ["admin", "user"],
+	"get all device info": ["admin"],
 	"get room": ["admin"],
 	"get all rooms": ["admin", "user"],
 	"get bluetooth devices": ["admin"],
