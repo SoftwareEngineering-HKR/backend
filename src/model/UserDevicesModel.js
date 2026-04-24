@@ -45,7 +45,7 @@ class UserDeviceModel extends EventEmitter {
 
 	/**
 	 * Delete a user from a device
-	 * @param {string} userID - UUID to identify the user
+	 * @param {string} userID - UUID to identify the user taken from the data payload
 	 * @param {string} deviceId - VARCHAR that identifies the device
 	 * @return {Promise<boolean>} - returns true if user was able to be connected to the device
 	 * @throws {Error} - throws error if the query fails
@@ -64,12 +64,12 @@ class UserDeviceModel extends EventEmitter {
 
 	/**
 	 * Delete a yourself from a device
-	 * @param {string} userID - UUID to identify the user
+	 * @param {string} userID - UUID to identify the user from webtoken UsedId
 	 * @param {string} deviceId - VARCHAR that identifies the device
 	 * @return {Promise<boolean>} - returns true if user was able to be connected to the device
 	 * @throws {Error} - throws error if the query fails
 	 */
-	async deleteUserFromDevice(userID, deviceId) {
+	async deleteYourselfFromDevice(userID, deviceId) {
 		const sql = `DELETE FROM user_devices WHERE id_user = $1 AND id_device = $2`;
 		const args = [userID, deviceId];
 		const result = await dbs.query(sql, args);
