@@ -1,5 +1,6 @@
 //Imports goes here
 import dbs from "../service/DatabaseService.js";
+
 /**
  * Model for the scale
  *
@@ -47,15 +48,18 @@ class ScaleModel {
 	/**
 	 * Updates the value for that scale
 	 * @param {string} id - UUID to identify the scale
-	 * @param {number} value - the value that will be the current value
+	 * @param {string} value - the value that will be the current value
+	 * @param {string} type - the device type
 	 * @return {Promise<boolean>} - returns true if update was successfull
 	 * @throws {Error} - If the value exceeds min_value or max_value
 	 * @throws {Error} - If the row does not exists
 	 */
 
-	async updateValue(id, value) {
+	async updateValue(id, value, type) {
 		const scale = await this.getValue(id);
-		if (Number(scale.max_value) < value || Number(scale.min_value) > value) {
+		if (type == "display" && scale.max_value < value.length) {
+			throw new Error("String too long");
+		} else if (Number(scale.max_value) < Number(value) || Number(scale.min_value) > Number(value)) {
 			throw new Error("Value can not exceed max value");
 		}
 		const sql = "UPDATE scales SET value = $1 WHERE id_device = $2 RETURNING id_device";

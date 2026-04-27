@@ -27,7 +27,7 @@ CREATE TABLE devices (
 CREATE TABLE scales (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     id_device VARCHAR(17) NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-    value NUMERIC,
+    value VARCHAR(32),
     max_value NUMERIC,
     min_value NUMERIC,
     name VARCHAR(20)

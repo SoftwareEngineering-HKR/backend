@@ -42,8 +42,8 @@ export class WSHandler {
 	async create_room(data) {
 		const room_name = data.name;
 		try {
-			const res = await RoomModel.setRoom(room_name);
-			return this.constructFrontendResponse(200, `Successfully created room ${res.name}.`);
+			await RoomModel.setRoom(room_name);
+			return this.constructFrontendResponse(200, `Successfully created room ${room_name}.`);
 		} catch (e) {
 			console.error(e);
 			return this.constructFrontendResponse(500, "Failed to create room!");

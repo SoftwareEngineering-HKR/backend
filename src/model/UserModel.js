@@ -42,7 +42,7 @@ class UserModel {
 	 * @returns {Promise<Array<Object>>} list of users.
 	 */
 	async getAllUsers() {
-		let sql = "SELECT * FROM users";
+		let sql = "SELECT id, username, type FROM users";
 		const results = await dbs.query(sql);
 		if (results.rowCount == 0) {
 			return null;
@@ -76,7 +76,7 @@ class UserModel {
 	 * @returns {Promise<object>} A user if it exists or false.
 	 */
 	async getUserById(userId) {
-		let sql = "SELECT * FROM users WHERE id = $1";
+		let sql = "SELECT id, username, type FROM users WHERE id = $1";
 		const arg = [userId];
 		const result = await dbs.query(sql, arg);
 		if (result.rowCount == 0) {
@@ -111,12 +111,12 @@ class UserModel {
 	 * @param {string} password - password the user choose
 	 * @returns {Promise<user>} The user of the newly created user.
 	 */
-	async addUser(username, password) {
+	async addUser(username, password, type = "user") {
 		const hashedPassword = await this.hashpass(password);
 		let sql;
 		let arg;
-		sql = "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id";
-		arg = [username, hashedPassword];
+		sql = "INSERT INTO users (username, password, type) VALUES ($1, $2, $3) RETURNING id";
+		arg = [username, hashedPassword, type];
 		const result = await dbs.query(sql, arg);
 		const user = await this.getUserById(result[0].id);
 		return user;

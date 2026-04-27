@@ -86,6 +86,11 @@ router.post("/signup", async (req, res) => {
 	const { username, password } = req.body;
 	const ip = req.ip;
 	try {
+		if (password.length < 8) {
+			return res.status(400).json({
+				message: "Invalid credentials password too short",
+			});
+		}
 		const user = await UserModel.addUser(username, password);
 		const accessToken = authmodel.createAccessJWToken(user.id, user.type);
 		const refreshToken = authmodel.createRefreshToken(user.id, user.type, ip);

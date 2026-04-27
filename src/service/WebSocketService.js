@@ -86,8 +86,8 @@ export class WebSocketService {
 			this.#sendDeviceMessageToFrontend(device.id, "added new device", device, userID);
 		});
 
-		DeviceModel.on("updateValue", ({ deviceID, value }) => {
-			this.#sendDeviceMessageToFrontend(deviceID, "update value", value);
+		DeviceModel.on("updateValue", ({ id, value }) => {
+			this.#sendDeviceMessageToFrontend(id, "update value", value);
 		});
 
 		DeviceModel.on("newDevice", ({ id, scaleResult }) => {

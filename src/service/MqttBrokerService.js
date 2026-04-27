@@ -28,7 +28,7 @@ export class MqttBrokerService {
 	#subscriptions = new Map();
 	/** @type {Map<string, Topic} */
 	#deviceTopics = new Map();
-	/** @type {Map<string, [number, number]}> */
+	/** @type {Map<string, [number, string]}> */
 	#outgoingMessages = new Map();
 	/** @type {number} */
 	#packetIdCounter = 0;
@@ -158,7 +158,7 @@ export class MqttBrokerService {
 	/**
 	 * Send publish package to an online device to change its value
 	 * @param {string} deviceId - ID of the device which value should be changed
-	 * @param {number} value - The value which device should update its state to
+	 * @param {string} value - The value which device should update its state to
 	 * @returns {void}
 	 */
 	#setDeviceValue(deviceId, value) {
@@ -172,7 +172,7 @@ export class MqttBrokerService {
 		const [deviceSocket, topicName] = this.#subscriptions.get(deviceId);
 
 		const topicBytes = Buffer.from(topicName, "utf8");
-		const payloadBytes = Buffer.from(String(value), "utf8");
+		const payloadBytes = Buffer.from(value, "utf8");
 
 		const remainingLength = 2 + topicBytes.length + 2 + payloadBytes.length;
 
@@ -216,7 +216,6 @@ export class MqttBrokerService {
 
 		const latestMessage = this.#outgoingMessages.get(deviceId);
 		if (!latestMessage || latestMessage[0] !== packetId) return;
-
 		try {
 			this.#deviceModel.updateValue(deviceId, latestMessage[1]);
 			this.#outgoingMessages.delete(deviceId);

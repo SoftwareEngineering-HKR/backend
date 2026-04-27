@@ -18,7 +18,7 @@ class BluetoothService {
 	#connections = new Map();
 	/** @type {Map<string, BluetoothRemoteGATTCharacteristic>} */
 	#characteristics = new Map();
-	/** @type {Map<string, number>} */
+	/** @type {Map<string, string>} */
 	#pendingMessages = new Map();
 
 	/**

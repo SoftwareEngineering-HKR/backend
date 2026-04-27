@@ -1,6 +1,6 @@
 //Imports goes here
 import dbs from "../service/DatabaseService.js";
-import scale from "../model/ScaleModel.js";
+import ScaleModel from "../model/ScaleModel.js";
 import { EventEmitter } from "node:events";
 
 /**
@@ -31,19 +31,18 @@ class DeviceModel extends EventEmitter {
 	/**
 	 * Gets the name  and desciption of the device
 	 * @param {string} id - UUID to identify the device
-	 * @return {Promise<{name: string, description: string}>} - returns the name and description for that device
+	 * @return {Promise<{name: string, description: string, type: string}>} - returns the name and description for that device
 	 * @throws {Error} - if no device with that id is found
 	 */
 
 	async getDeviceInfo(id) {
-		let sql = "SELECT name, description FROM devices WHERE id = $1";
+		let sql = "SELECT name, description, type FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		const row = result.rows[0];
-		if (!row) {
+		if (!result) {
 			throw new Error("No device with that id was found.");
 		}
-		return { name: row.name, description: row.description };
+		return { name: result[0].name, description: result[0].description, type: result[0].type };
 	}
 
 	/**
@@ -71,7 +70,7 @@ class DeviceModel extends EventEmitter {
 				[id, id_room, type, online, ip, name, description, sensor],
 			);
 
-			const scaleResult = await scale.setValue(id, value, min, max, dbs);
+			const scaleResult = await ScaleModel.setValue(id, value, min, max, dbs);
 
 			await dbs.query("COMMIT");
 
@@ -143,28 +142,39 @@ class DeviceModel extends EventEmitter {
 	/**
 	 * Updates the the device's scale
 	 * @param {string} id - UUID to identify the scale
-	 * @param {number} value - value of the new device scale setting
+	 * @param {string} value - value of the new device scale setting
 	 * @return {Promise<boolean>} - returns true if update was successfull
 	 * @throws {Error} - if update was not successfull
 	 */
 	async updateValue(id, value) {
-		let deviceID = await scale.updateValue(id, value);
-		this.emit("updateValue", { deviceID, value });
+		try {
+			const result = await this.getDeviceInfo(id);
+			await ScaleModel.updateValue(id, value, result.type);
+		} catch (e) {
+			console.error(e);
+		}
+		this.emit("updateValue", { id, value });
 		return;
 	}
 
 	/**
 	 * Updates the the device's scale; this function is supposed to be used by the frontend
 	 * @param {string} id - Id of the device to identify the scale
-	 * @param {number} newValue - value of the new device scale setting
+	 * @param {string} newValue - value of the new device scale setting
 	 * @return {Promise<boolean>} - returns true if update was successfull
 	 * @throws {Error} - if update was not successfull
 	 */
 	async setValue(id, newValue) {
+		const result = await this.getDeviceInfo(id);
+		const scale = await ScaleModel.getValue(id);
+		if (result.type == "display" && scale.max_value < newValue.length) {
+			throw new Error("String too long");
+		}
 		const sensor = await this.checkifDeviceIsSensor(id);
 		if (sensor) throw new Error("Device's value cannot be modified.");
-		const { min_value, max_value } = await scale.getValue(id);
-		if (newValue > max_value || newValue < min_value) throw new Error("Value outside of allowed range.");
+		const { min_value, max_value } = await ScaleModel.getValue(id);
+		if (Number(newValue) > max_value || Number(newValue) < min_value)
+			throw new Error("Value outside of allowed range.");
 		this.emit("sendPublish", { id, value: newValue });
 		return;
 	}
@@ -224,7 +234,7 @@ class DeviceModel extends EventEmitter {
 	 * @throws {Error} - if query was not successfull
 	 */
 	async getDeviceValue(id) {
-		const scaleResult = await scale.getValue(id);
+		const scaleResult = await ScaleModel.getValue(id);
 		return scaleResult.value;
 	}
 
