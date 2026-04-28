@@ -55,22 +55,21 @@ class BluetoothService {
 	async reconnect() {
 		while (true) {
 			try {
-				console.debug("Trying to reconnect to known bluetooth devices ...");
-				const pairedDeviceAddresses = await DeviceModel.getBluetoothDevices();
+				console.debug("Trying to reconnect to Bluetooth devices with matchings IDs ...");
 				const devices = await this.scan();
 				for (const device of devices) {
-					if (pairedDeviceAddresses.includes(device.id)) {
+					if (device.name.includes("SE-HKR")) {
 						try {
 							await this.connectDevice(device.id);
 						} catch (e) {
-							console.debug(`Reconnect failed for ${device.id}`, e);
+							console.debug(`Connection attempt to ${device.id} failed`, e);
 						}
 					}
 				}
 			} catch (e) {
-				console.error("Could not reconnect to previously connected devices", e);
+				console.error("Could not reconnect to Bluetooth devices", e);
 			} finally {
-				await new Promise((r) => setTimeout(r, 300000)); // 5 min timeout for now :)
+				await new Promise((r) => setTimeout(r, 120000)); // 2 min timeout
 			}
 		}
 	}
@@ -165,7 +164,7 @@ class BluetoothService {
 				DeviceModel.updateValue(bluetoothAddress, message);
 			}
 		} catch (e) {
-			console.error("Could not send inital message to device:", e);
+			console.error("Could not send initial message to device:", e);
 		}
 
 		console.debug(`Connected to ${bluetoothDevice.name ?? bluetoothAddress}`);
@@ -233,7 +232,7 @@ class BluetoothService {
 	async #sendValue(bluetoothAddress, value) {
 		const characteristic = this.#characteristics.get(bluetoothAddress);
 		if (!characteristic) {
-			console.debug(`Cannot send value: device ${bluetoothAddress} is not connected.`);
+			console.debug(`Cannot send value: Bluetooth device ${bluetoothAddress} is not connected.`);
 			this.#pendingMessages.set(bluetoothAddress, value);
 			return;
 		}

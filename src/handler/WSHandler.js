@@ -136,7 +136,7 @@ export class WSHandler {
 	 */
 	async update_value(data, userId) {
 		const id = data.id;
-		const value = data.value;
+		const value = String(data.value);
 		const userDevices = await UserDeviceModel.getDevicesByUser(userId);
 		if (!userDevices.includes(id)) {
 			console.debug(`User ${userId} attempted to update device ${id} without access`);
