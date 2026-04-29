@@ -19,7 +19,7 @@ describe("DatabaseService", function() {
         const result = await DatabaseService.query("SELECT * FROM users");
 
 
-        expect(result).to.deep.equal(rows);
+        expect(result.rows).to.deep.equal(rows);
         expect(queryStub.calledOnce).to.be.true;
     });
 

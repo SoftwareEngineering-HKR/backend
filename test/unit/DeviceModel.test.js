@@ -203,7 +203,6 @@ describe("DeviceModel", function() {
         querystub.resolves({rowCount: 1})
 
         const result = await DeviceModel.checkIfDeviceExists("1");
-
         expect(result).to.equal(true);
     });
 

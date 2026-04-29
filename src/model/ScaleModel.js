@@ -17,7 +17,7 @@ class ScaleModel {
 		let sql = "SELECT value, min_value, max_value FROM scales WHERE id_device = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		const row = result[0];
+		const row = result.rows[0];
 		if (!row) {
 			throw new Error("No scale for this device found.");
 		}
@@ -42,7 +42,8 @@ class ScaleModel {
 			"INSERT INTO scales (id_device, value, min_value, max_value)" + "VALUES ($1, $2, $3, $4) RETURNING id",
 			[device_id, value, min_value, max_value],
 		);
-		return result.id;
+		const row = result.rows[0]
+		return row;
 	}
 
 	/**
@@ -68,7 +69,7 @@ class ScaleModel {
 		if (result.rowCount === 0) {
 			throw new Error("Scale not found");
 		}
-		const row = result[0];
+		const row = result.rows[0];
 		return row.id_device;
 	}
 
