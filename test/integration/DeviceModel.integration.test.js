@@ -37,7 +37,7 @@ describe("DeviceModel Integration Test", function () {
             "100",
             "-3"
         );
-
+        console.log(result)
         expect(result).to.equal(id);
 
         const deviceRows = await dbs.query(
@@ -45,19 +45,19 @@ describe("DeviceModel Integration Test", function () {
             [id]
         );
 
-        expect(deviceRows.length).to.equal(1);
-        expect(deviceRows[0].name).to.equal("light");
-        expect(deviceRows[0].description).to.equal("Loud speaker!");
+        expect(deviceRows.rows.length).to.equal(1);
+        expect(deviceRows.rows[0].name).to.equal("light");
+        expect(deviceRows.rows[0].description).to.equal("Loud speaker!");
 
         const scaleRows = await dbs.query(
             "SELECT * FROM scales WHERE id_device = $1",
             [id]
         );
 
-        expect(scaleRows.length).to.equal(1);
-        expect(scaleRows[0].value).to.equal("49");
-        expect(scaleRows[0].max_value).to.equal("100");
-        expect(scaleRows[0].min_value).to.equal("-3");
+        expect(scaleRows.rows.length).to.equal(1);
+        expect(scaleRows.rows[0].value).to.equal("49");
+        expect(scaleRows.rows[0].max_value).to.equal("100");
+        expect(scaleRows.rows[0].min_value).to.equal("-3");
     });
 
     it("Will get the initiate the device (initDevice)", async () => {
@@ -70,8 +70,8 @@ describe("DeviceModel Integration Test", function () {
             [id]
         );
 
-        expect(result.length).to.equal(1);
-        expect(result[0].ip).to.equal(ip);
+        expect(result.rows.length).to.equal(1);
+        expect(result.rows[0].ip).to.equal(ip);
         
     });
 
@@ -86,9 +86,9 @@ describe("DeviceModel Integration Test", function () {
             [id]
         );
 
-        expect(result.length).to.equal(1);
-        expect(result[0].name).to.equal("Floor Lamp");
-        expect(result[0].description).to.equal("Huge lava lamp");
+        expect(result.rows.length).to.equal(1);
+        expect(result.rows[0].name).to.equal("Floor Lamp");
+        expect(result.rows[0].description).to.equal("Huge lava lamp");
         
     });
 
@@ -103,7 +103,7 @@ describe("DeviceModel Integration Test", function () {
             [id]
         );
 
-        expect(result.length).to.equal(0);
+        expect(result.rows.length).to.equal(0);
     });
 
     it("Delete the device by roomID (deleteDeviceRoomID)", async () => {
@@ -121,7 +121,7 @@ describe("DeviceModel Integration Test", function () {
                 [id]
             );
     
-        expect(firstRes.length).to.equal(1);
+        expect(firstRes.rowCount).to.equal(1);
 
         await DeviceModel.deleteDeviceRoomID(roomId, dbs);
 
@@ -130,6 +130,6 @@ describe("DeviceModel Integration Test", function () {
             [id]
         );
 
-        expect(secondRes.length).to.equal(0);
+        expect(secondRes.rows.length).to.equal(0);
     });
 });

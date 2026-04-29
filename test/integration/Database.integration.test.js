@@ -27,12 +27,12 @@ describe("DatabaseService integration", function () {
             ["test entry"]
         );
 
-        expect(inserted).to.have.lengthOf(1);
-        expect(inserted[0].name).to.equal("test entry");
+        expect(inserted.rows).to.have.lengthOf(1);
+        expect(inserted.rows[0].name).to.equal("test entry");
 
-        const rows = await dbs.query("SELECT * FROM test_table");
+        const result = await dbs.query("SELECT * FROM test_table");
 
-        expect(rows).to.have.lengthOf(1);
-        expect(rows[0].name).to.equal("test entry");
+        expect(result.rows).to.have.lengthOf(1);
+        expect(result.rows[0].name).to.equal("test entry");
     });
 });
