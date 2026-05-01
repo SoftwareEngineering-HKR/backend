@@ -333,6 +333,18 @@ class DeviceModel extends EventEmitter {
 		const result = await dbs.query(sql);
 		return result;
 	}
+
+	/**
+	 * Updates the room of a device
+	 * @param {number} id - device id
+	 * @param {number | undefined} room_id - The room id to set, or undefined to remove the room
+	 * @return {Promise<void>}
+	 * @throws {Error} - if query was not successful
+	 */
+	async updateDeviceRoom(id, room_id) {
+		const sql = `UPDATE devices SET id_room = $1 WHERE id = $2`;
+		await dbs.query(sql, [room_id || null, id]);
+	}
 }
 
 export default new DeviceModel();
