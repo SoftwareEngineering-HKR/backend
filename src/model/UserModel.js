@@ -29,10 +29,11 @@ class UserModel {
 		let sql = "SELECT id FROM users WHERE username = $1";
 		const arg = [username];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount == 0) {
+		if (result.length == 0) {
 			return null;
 		}
-		const row = result.rows[0];
+		const row = result[0];
+
 		return row.id;
 	}
 
@@ -44,7 +45,7 @@ class UserModel {
 	async getAllUsers() {
 		let sql = "SELECT id, username, type FROM users";
 		const results = await dbs.query(sql);
-		if (results.rowCount == 0) {
+		if (results.length == 0) {
 			return null;
 		}
 		return results;
@@ -61,7 +62,7 @@ class UserModel {
 		let sql = "SELECT id, type, password FROM users WHERE username = $1";
 		const arg = [username];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount == 0) {
+		if (result.length == 0) {
 			return null;
 		}
 		const row = result[0];
@@ -155,7 +156,7 @@ class UserModel {
 		const newPassHash = await bcrypt.hash(newPassword, salt);
 		const arg = [newPassHash, userId];
 		const result = await dbs.query(sql, arg);
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 
 	/**

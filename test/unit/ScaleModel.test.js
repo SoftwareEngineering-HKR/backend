@@ -12,9 +12,8 @@ describe("ScaleModel", function() {
     });
 
     it("getValue function", async () => {
-        querystub = sinon.stub(DatabaseService, "query").resolves({
-            rows: [{ value: 4, min_value: 10, max_value: 25 }]
-        });
+        querystub = sinon.stub(DatabaseService, "query").resolves( [{ value: 4, min_value: 10, max_value: 25 }]
+        );
 
         const result = await ScaleModel.getValue("1");
         expect(result).to.deep.equal({
@@ -36,18 +35,20 @@ describe("ScaleModel", function() {
         }
    });
     it("updateValue function", async () => {
-        querystub = sinon.stub(DatabaseService, "query").resolves({ rowCount: 1,
-        rows: [{ id_device: "1" }] });
-        scalestub = sinon.stub(ScaleModel, "getValue").resolves({value: 4, min_value: 0, max_value: 25});
+        querystub = sinon.stub(DatabaseService, "query")
+            .resolves([{ id_device: "1" }]);
+
+        scalestub = sinon.stub(ScaleModel, "getValue")
+            .resolves({ value: 4, min_value: 0, max_value: 25 });
+
         const result = await ScaleModel.updateValue("1", 5);
 
-        expect(result).to.deep.equal( "1" );
+        expect(result).to.equal("1");
     });
     it("updateValue - throws if value exeeds max", async () => {
         querystub = sinon.stub(DatabaseService, "query")
         .resolves({ rows: [] });
         scalestub = sinon.stub(ScaleModel, "getValue").resolves({value: 30, min_value: 0, max_value: 25});
-
 
         try {
             await ScaleModel.updateValue("1", 30);
