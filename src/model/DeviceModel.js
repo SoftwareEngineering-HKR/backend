@@ -22,10 +22,10 @@ class DeviceModel extends EventEmitter {
 		let sql = "SELECT id FROM devices";
 		const args = [];
 		const result = await dbs.query(sql, args);
-		if (result.rows.length === 0) {
+		if (result.length === 0 || !result) {
 			throw new Error("No devices was found.");
 		}
-		return result.rows;
+		return result;
 	}
 
 	/**
@@ -39,7 +39,7 @@ class DeviceModel extends EventEmitter {
 		let sql = "SELECT name, description, type FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		if (!result) {
+		if (!result || result.length === 0 ) {
 			throw new Error("No device with that id was found.");
 		}
 		return { name: result[0].name, description: result[0].description, type: result[0].type };
@@ -107,7 +107,7 @@ class DeviceModel extends EventEmitter {
 		const args = [name, description, id];
 		const result = await dbs.query(sql, args);
 		this.emit("updateDevice", { id, name, description });
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 
 	/**
@@ -120,7 +120,7 @@ class DeviceModel extends EventEmitter {
 		const sql = "DELETE FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 
 	/**
@@ -132,12 +132,12 @@ class DeviceModel extends EventEmitter {
 	async deleteDeviceRoomID(id_room, client = null) {
 		const waiting = client ?? dbs.pool;
 		const result = await waiting.query("DELETE FROM devices WHERE id_room = $1 RETURNING id", [id_room]);
-		if (result.rowCount > 0) {
-			for (const row of result.rows) {
+		if (result.length > 0) {
+			for (const row of result) {
 				this.emit("deviceDeleted", { id: row.id });
 			}
 		}
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 	/**
 	 * Updates the the device's scale
@@ -191,7 +191,7 @@ class DeviceModel extends EventEmitter {
 		const args = [online, id];
 		const result = await dbs.query(sql, args);
 		this.emit("OnlineStateUpdate", { id, online });
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 
 	/**
@@ -204,7 +204,10 @@ class DeviceModel extends EventEmitter {
 		const sql = "SELECT ip FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		return result.rowCount > 0
+		if (result.length !== 0 || !result) {
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -263,7 +266,7 @@ class DeviceModel extends EventEmitter {
 			WHERE devices.id = ANY($1)
 		`;
 		const result = await dbs.query(sql, [ids]);
-		return result.rows;
+		return result;
 	}
 
 	/**

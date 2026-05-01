@@ -13,9 +13,8 @@ describe("RoomModel", function() {
 
     it("getRoom function", async ()=> {
         querystub = sinon.stub(DatabaseService, "query")
-            .resolves({
-                rows: [{ name: "name" }]
-            });
+            .resolves([{ name: "name" }]
+            );
 
         const result = await RoomModel.getRoom("1");
         expect(result).to.deep.equal({ name: "name" });
@@ -35,12 +34,11 @@ describe("RoomModel", function() {
    });
    it("setRoom - should insert and return room", async () => {
         querystub = sinon.stub(DatabaseService, "query")
-        .resolves({
-            rows: [{ id: "1", name: "Kitchen" }]
-        });
+        .resolves([{ id: "1", name: "Kitchen" }]
+        );
 
         const result = await RoomModel.setRoom("Kitchen");
-
+        
         expect(result).to.deep.equal({ id: "1", name: "Kitchen" });
         expect(querystub.calledOnce).to.be.true;
     });
@@ -55,7 +53,7 @@ describe("RoomModel", function() {
         }
     });
     it("updateRoom - should return true if update succeeds", async () => {
-        sinon.stub(DatabaseService, "query").resolves({ rowCount: 1 });
+        sinon.stub(DatabaseService, "query").resolves({ length: 1 });
 
         const result = await RoomModel.updateRoom("1", "Kitchen");
 

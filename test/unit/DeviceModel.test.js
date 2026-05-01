@@ -13,11 +13,11 @@ describe("DeviceModel", function() {
         if(querystub) sinon.restore();
     });
 
-    it("get all the devices id", async ()=> {
+    it("GetDevices - get all the devices id", async ()=> {
         const rows = [{ id: "1", id: "2" }]
 
         querystub = sinon.stub(DatabaseService, "query")
-        .resolves({ rows: rows });
+        .resolves(rows);
 
         const result = await DeviceModel.getDevices();
 
@@ -25,11 +25,11 @@ describe("DeviceModel", function() {
         expect(querystub.calledOnce).to.be.true;
     });
 
-    it("if no devices found", async()=>{
+    it("GetDevices - if no devices found", async()=>{
         const rows = [];
 
         querystub = sinon.stub(DatabaseService, "query")
-        .resolves({ rows: rows });
+        .resolves(rows);
 
         const result = DeviceModel.getDevices();
 
@@ -37,11 +37,11 @@ describe("DeviceModel", function() {
 
     });
 
-    it("if no decvices found an error is thrown", async() => {
+    it("GetDevices - if no decvices found an error is thrown", async() => {
         const rows = [];
 
         querystub = sinon.stub(DatabaseService, "query")
-        .resolves({ rows: rows });
+        .resolves(rows);
 
         try {
             await DeviceModel.getDevices();
@@ -51,11 +51,11 @@ describe("DeviceModel", function() {
         }
     });
 
-    it("getting information about a specific device", async() => {
-        const rows = [{ name: "lamp", description: "lamp description" }]
+    it("getDeviceInfo - getting information about a specific device", async() => {
+        const rows = [{ "name": "lamp", "description": "lamp description", "type": "lamp" }]
 
         querystub = sinon.stub(DatabaseService, "query")
-        .resolves({ rows: rows });
+        .resolves(rows );
 
         const result = await DeviceModel.getDeviceInfo(1);
 
@@ -63,33 +63,20 @@ describe("DeviceModel", function() {
         expect(querystub.calledWith(sinon.match.string, [1])).to.be.true;
     });
 
-    it("if no devices with that idfound", async()=>{
-        const rows = [];
-
+    it("getDeviceInfo - if no devices with that id found", async () => {
         querystub = sinon.stub(DatabaseService, "query")
-        .resolves({ rows: rows });
-
-        const result = DeviceModel.getDeviceInfo(1);
-
-        expect(result).to.be.empty;
-
-    });
-
-    it("if no decvices with that id is found an error is thrown", async() => {
-        const rows = [];
-
-        querystub = sinon.stub(DatabaseService, "query")
-        .resolves({ rows: rows });
+            .resolves([]);
 
         try {
             await DeviceModel.getDeviceInfo(1);
-            expect.fail("Should throw an error if no devices is found.");
-        } catch(error){
+            expect.fail("Should throw error");
+        } catch (error) {
             expect(error.message).to.equal("No device with that id was found.");
         }
     });
 
-    it("if a new device is set up properly", async()=>{
+
+    it("setDevice - if a new device is set up properly", async()=>{
         querystub = sinon.stub(DatabaseService, "query");
 
         querystub.onCall(0).resolves();
@@ -112,7 +99,7 @@ describe("DeviceModel", function() {
     });
 
 
-    it("checking if ROLLBACK occurs and throws error", async () => {
+    it("setDevice - checking if ROLLBACK occurs and throws error", async () => {
         const testError = new Error("Scale failes");
     
         querystub = sinon.stub(DatabaseService, "query");
@@ -136,7 +123,7 @@ describe("DeviceModel", function() {
         }
     });
 
-    it("check so a device is initiated", async()=> {
+    it("initDevice - check so a device is initiated", async()=> {
         querystub = sinon.stub(DatabaseService, "query");
         querystub.resolves({ row: [{ ip: "1", mac: "1" }]});
 
@@ -147,9 +134,9 @@ describe("DeviceModel", function() {
 
     });
 
-    it("if a device gets properly updated", async()=>  {
+    it("updateDevice - if a device gets properly updated", async()=>  {
         querystub = sinon.stub(DatabaseService, "query");
-        querystub.resolves({rowCount: 1});
+        querystub.resolves({length: 1});
 
         emitstub = sinon.stub(DeviceModel, "emit");
 
@@ -160,9 +147,9 @@ describe("DeviceModel", function() {
         expect(emitstub.calledOnceWithExactly("updateDevice", {id: "1", name: "name", description: "description"})).to.be.true;
     });
 
-    it("if a device gets deleted", async()=>  {
+    it("deleteDevice - if a device gets deleted", async()=>  {
         querystub = sinon.stub(DatabaseService, "query");
-        querystub.resolves({rowCount: 1});
+        querystub.resolves({length: 1});
 
         const result = await DeviceModel.deleteDevice("1");
 
@@ -170,29 +157,31 @@ describe("DeviceModel", function() {
         expect(querystub.firstCall).to.match(/DELETE FROM devices WHERE id = /i);
     });
 
-    it("if a value gets updated", async()=>  {
+    it("updateValue - if a value gets updated", async()=>  {
         querystub = sinon.stub(DatabaseService, "query");
+        sinon.stub(DeviceModel, "getDeviceInfo")
+        .resolves({ type: "lamp" });
+
+        const emitstub = sinon.stub(DeviceModel, "emit");
 
 
-        emitstub = sinon.stub(DeviceModel, "emit");
-
-        scalestub = sinon.stub(scale, "updateValue");
+        const scalestub = sinon.stub(scale, "updateValue");
         scalestub.resolves({ deviceID : "1" })
 
         const result = await DeviceModel.updateValue("1", "2");
 
+        expect(emitstub.calledOnceWithExactly("updateValue", { id: "1", value: "2" })).to.be.true;  
         expect(scalestub.calledOnce).to.be.true;
-        expect(emitstub.calledOnceWithExactly("updateValue", {deviceID: "1", value: "2"}))
+
     });
 
     it("if a device status gets updates", async()=>  {
         querystub = sinon.stub(DatabaseService, "query");
         emitstub = sinon.stub(DeviceModel, "emit");
 
-        querystub.resolves({online: true, rowCount: 1})
+        querystub.resolves({online: true, length: 1})
 
         const result = await DeviceModel.updateDeviceStatus("1", false);
-
         expect(result).to.equal(true);
         expect(emitstub.calledOnceWithExactly("OnlineStateUpdate", {id: "1", online: true}))
     });
@@ -200,7 +189,7 @@ describe("DeviceModel", function() {
     it("if a device exists returns true", async()=>  {
         querystub = sinon.stub(DatabaseService, "query");
 
-        querystub.resolves({rowCount: 1})
+        querystub.resolves({length: 1})
 
         const result = await DeviceModel.checkIfDeviceExists("1");
         expect(result).to.equal(true);
@@ -210,7 +199,7 @@ describe("DeviceModel", function() {
         querystub = sinon.stub(DatabaseService, "query");
         emitstub = sinon.stub(DeviceModel, "emit");
 
-        querystub.resolves({rowCount: 0})
+        querystub.resolves({length: 0})
 
         const result = await DeviceModel.updateDeviceStatus("1");
 
@@ -222,7 +211,7 @@ describe("DeviceModel", function() {
 
         const rows = ["1", "2"]
 
-        querystub.resolves({ rows });
+        querystub.resolves( rows );
 
         const result = await DeviceModel.getDevicesByIDs(rows);
 
@@ -235,7 +224,7 @@ describe("DeviceModel", function() {
 
         const rows = []
 
-        querystub.resolves({ rows: rows });
+        querystub.resolves( rows );
 
         const result = await DeviceModel.getDevicesByIDs([""]);
 

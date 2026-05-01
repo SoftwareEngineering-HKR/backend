@@ -11,7 +11,6 @@ describe("RoomModel Integration Test", function () {
     });
 
     beforeEach(async () => {
-        // Delete child tables before parent tables
         await dbs.query("DELETE FROM rooms WHERE name = $1", [roomName]);
     });
 
@@ -20,11 +19,10 @@ describe("RoomModel Integration Test", function () {
         await dbs.query(
             "INSERT INTO rooms (id, name) VALUES ($1, $2)",
             [roomId, roomName]
-        );
-   
+        )
 
         const result = await RoomModel.getRoom(roomId);
-        expect(result).to.deep.equal({ name: roomName });
+        expect(result).to.deep.equal({name: roomName});
     });
 
     it("setRoom - Should insert a new room with name", async () => {
@@ -35,7 +33,7 @@ describe("RoomModel Integration Test", function () {
             [roomName]
         );
 
-        expect(result.rowCount).to.equal(1);
-        expect(result.rows[0].name).to.equal(roomName);
+        expect(result.length).to.equal(1);
+        expect(result[0].name).to.equal(roomName);
     });
 });

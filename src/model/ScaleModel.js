@@ -17,7 +17,7 @@ class ScaleModel {
 		let sql = "SELECT value, min_value, max_value FROM scales WHERE id_device = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		const row = result.rows[0];
+		const row = result[0];
 		if (!row) {
 			throw new Error("No scale for this device found.");
 		}
@@ -34,15 +34,13 @@ class ScaleModel {
 	 * @return {Promise<{ row }>} - returns a row that holds id, value, min and max value for that scale
 	 */
 
-	async setValue(device_id, value, min_value, max_value, client = null) {
-		if (client == null) {
-			client = dbs.connect();
-		}
+	async setValue(device_id, value, min_value, max_value, cli = null) {
+		const client = cli ?? dbs;
 		const result = await client.query(
 			"INSERT INTO scales (id_device, value, min_value, max_value)" + "VALUES ($1, $2, $3, $4) RETURNING id",
 			[device_id, value, min_value, max_value],
 		);
-		const row = result.rows[0]
+		const row = result[0]
 		return row;
 	}
 
@@ -66,10 +64,10 @@ class ScaleModel {
 		const sql = "UPDATE scales SET value = $1 WHERE id_device = $2 RETURNING id_device";
 		const args = [value, id];
 		const result = await dbs.query(sql, args);
-		if (result.rowCount === 0) {
+		if (!result || result.length === 0) {
 			throw new Error("Scale not found");
 		}
-		const row = result.rows[0];
+		const row = result[0];
 		return row.id_device;
 	}
 
@@ -83,7 +81,7 @@ class ScaleModel {
 		const sql = "DELETE FROM scales WHERE id =$1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 }
 
