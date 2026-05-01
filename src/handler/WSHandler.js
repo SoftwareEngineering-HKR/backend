@@ -130,6 +130,22 @@ export class WSHandler {
 		}
 	}
 
+	/**
+	 * call to updateDeviceRoom in device model
+	 * @param {JSON} data object payload from message
+	 */
+	async update_device_room(data) {
+		const id = data.deviceId;
+		const room_id = data.roomId;
+		try {
+			await DeviceModel.updateDeviceRoom(id, room_id);
+			return this.constructFrontendResponse(200, `Successfully updated ${id}'s room.`);
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to update device room!");
+		}
+	}
+
 	/**call to updateValue in device model
 	 * @param {JSON} data object payload from message
 	 * @param {string} userId - Id of the user that is trying to update the devices value
@@ -258,6 +274,7 @@ export const messagehandler = async (type, payload, userId) => {
 		"update device": handler.update_device.bind(handler),
 		"get all rooms": handler.get_all_rooms.bind(handler),
 		"update room": handler.update_room.bind(handler),
+		"update device room": handler.update_device_room.bind(handler),
 		"delete room": handler.delete_room.bind(handler),
 		"delete device": handler.delete_device.bind(handler),
 		"update value": handler.update_value.bind(handler),
@@ -280,6 +297,7 @@ export const permissions = {
 	"update device": ["admin"],
 	"update room": ["admin"],
 	"delete room": ["admin"],
+	"update device room": ["admin"],
 	"delete device": ["admin"],
 	"update value": ["admin", "user"],
 	"get all device info": ["admin"],
