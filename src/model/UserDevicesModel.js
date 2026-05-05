@@ -40,7 +40,7 @@ class UserDeviceModel extends EventEmitter {
 		if (result) {
 			this.emit("addedUserToID", { userID, device });
 		}
-		return result.rowCount > 0;
+		return result.lenght > 0;
 	}
 
 	/**

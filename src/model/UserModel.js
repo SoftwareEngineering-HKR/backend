@@ -80,7 +80,7 @@ class UserModel {
 		let sql = "SELECT id, username, type FROM users WHERE id = $1";
 		const arg = [userId];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount == 0) {
+		if (result.length == 0) {
 			throw new Error("No user was found");
 		}
 		const row = result[0];
@@ -98,10 +98,10 @@ class UserModel {
 		let sql = "SELECT password FROM users WHERE id = $1";
 		const arg = [id];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount == 0) {
+		if (result.length == 0) {
 			throw new Error("No user was found");
 		}
-		const row = result.rows[0];
+		const row = result[0];
 		return row.password;
 	}
 
@@ -134,7 +134,7 @@ class UserModel {
 		let sql = "UPDATE users SET username = $1 WHERE id = $2";
 		const arg = [username, userId];
 		const result = await dbs.query(sql, arg);
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 
 	/**
@@ -170,10 +170,10 @@ class UserModel {
 		let sql = "DELETE FROM users WHERE username = $1";
 		const arg = [userName];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount === 0) {
+		if (result.length === 0) {
 			throw new Error("Unable to delete user.");
 		}
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 	/** Login a user
 	 *
@@ -207,10 +207,10 @@ class UserModel {
 		const sql = "UPDATE users SET type = $1 WHERE user = $2 AND type != $1";
 		const arg = [role, userName];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount === 0) {
+		if (result.length === 0) {
 			throw new Error("Wrong username or user already have desired role.");
 		}
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 }
 
