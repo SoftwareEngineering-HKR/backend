@@ -28,8 +28,10 @@ export class WSHandler {
 		const description = data.description;
 		try {
 			await DeviceModel.setDevice(id_room, ip, device_name, description);
+			return this.constructFrontendResponse(200, `Successfully updatd device ${device_name}.`);
 		} catch (e) {
 			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to update device details!");
 		}
 	}
 
@@ -41,8 +43,10 @@ export class WSHandler {
 		const room_name = data.name;
 		try {
 			await RoomModel.setRoom(room_name);
+			return this.constructFrontendResponse(200, `Successfully created room ${room_name}.`);
 		} catch (e) {
 			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to create room!");
 		}
 	}
 	/**call to updateDevice name and description in model
@@ -54,8 +58,10 @@ export class WSHandler {
 		const description = data.description;
 		try {
 			await DeviceModel.updateDevice(id, device_name, description);
+			return this.constructFrontendResponse(200, `Successfully updated device ${id}.`);
 		} catch (e) {
 			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to update device!");
 		}
 	}
 	/**call to updateRoomwith new name in model
@@ -66,8 +72,33 @@ export class WSHandler {
 		const room_name = data.name;
 		try {
 			await RoomModel.updateRoom(id, room_name);
+			return this.constructFrontendResponse(200, `Successfully updated room ${id}.`);
 		} catch (e) {
 			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to update room!");
+		}
+	}
+
+	/**
+	 * Handler to fetch all created rooms from the database
+	 */
+	async get_all_rooms() {
+		try {
+			const rooms = await RoomModel.getAllRooms();
+			return { type: "rooms", payload: { rooms } };
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Could not get all rooms.");
+		}
+	}
+
+	async get_all_device_info() {
+		try {
+			const devices = await DeviceModel.getAllDevices();
+			return { type: "device info", payload: { devices } };
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Could not get device info.");
 		}
 	}
 
@@ -78,8 +109,10 @@ export class WSHandler {
 		const id = data.id;
 		try {
 			await RoomModel.deleteRoom(id);
+			return this.constructFrontendResponse(200, `Successfully deleted room ${id}.`);
 		} catch (e) {
 			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to delete room!");
 		}
 	}
 
@@ -90,8 +123,26 @@ export class WSHandler {
 		const id = data.id;
 		try {
 			await DeviceModel.deleteDevice(id);
+			return this.constructFrontendResponse(200, `Successfully deleted device ${id}.`);
 		} catch (e) {
 			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to delete device!");
+		}
+	}
+
+	/**
+	 * call to updateDeviceRoom in device model
+	 * @param {JSON} data object payload from message
+	 */
+	async update_device_room(data) {
+		const id = data.deviceId;
+		const room_id = data.roomId;
+		try {
+			await DeviceModel.updateDeviceRoom(id, room_id);
+			return this.constructFrontendResponse(200, `Successfully updated ${id}'s room.`);
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to update device room!");
 		}
 	}
 
@@ -101,7 +152,7 @@ export class WSHandler {
 	 */
 	async update_value(data, userId) {
 		const id = data.id;
-		const value = data.value;
+		const value = String(data.value);
 		const userDevices = await UserDeviceModel.getDevicesByUser(userId);
 		if (!userDevices.includes(id)) {
 			console.debug(`User ${userId} attempted to update device ${id} without access`);
@@ -115,27 +166,6 @@ export class WSHandler {
 		}
 	}
 
-	/**call to getDevices in device model
-	 */
-	async get_device() {
-		try {
-			await DeviceModel.getDevices();
-		} catch (e) {
-			console.error(e);
-		}
-	}
-
-	/**call to getRoom in room model
-	 * @param {JSON} data object payload from message
-	 */
-	async get_room(data) {
-		try {
-			await RoomModel.getRoom(data.id);
-		} catch (e) {
-			console.error(e);
-		}
-	}
-
 	/**
 	 * Call to promoteUser in user model
 	 * @param {JSON} data object payload from message
@@ -143,7 +173,7 @@ export class WSHandler {
 	async setUserRole(data) {
 		try {
 			await UserModel.setUserRole(data.userName, data.role);
-			return this.constructFrontendResponse(200, "Promoted users successfully!");
+			return this.constructFrontendResponse(200, "User role updated successfully!");
 		} catch (e) {
 			console.error(e);
 			return this.constructFrontendResponse(500, "Error, could not update the user to desired role!");
@@ -272,12 +302,13 @@ export const messagehandler = async (type, payload, userId) => {
 		"create room": handler.create_room.bind(handler),
 		"create device": handler.create_device.bind(handler),
 		"update device": handler.update_device.bind(handler),
+		"get all rooms": handler.get_all_rooms.bind(handler),
 		"update room": handler.update_room.bind(handler),
+		"update device room": handler.update_device_room.bind(handler),
 		"delete room": handler.delete_room.bind(handler),
 		"delete device": handler.delete_device.bind(handler),
 		"update value": handler.update_value.bind(handler),
-		"get devices": handler.get_device.bind(handler),
-		"get room": handler.get_room.bind(handler),
+		"get all device info": handler.get_all_device_info.bind(handler),
 		"get bluetooth devices": handler.get_bluetooth_devices.bind(handler),
 		"connect bluetooth device": handler.connect_bluetooth_device.bind(handler),
 		"update user role": handler.setUserRole.bind(handler),
@@ -298,10 +329,11 @@ export const permissions = {
 	"update device": ["admin"],
 	"update room": ["admin"],
 	"delete room": ["admin"],
+	"update device room": ["admin"],
 	"delete device": ["admin"],
 	"update value": ["admin", "user"],
-	"get devices": ["admin", "user"],
-	"get room": ["admin"],
+	"get all device info": ["admin"],
+	"get all rooms": ["admin", "user"],
 	"get bluetooth devices": ["admin"],
 	"connect bluetooth device": ["admin"],
 	"update user role": ["admin"],

@@ -25,6 +25,20 @@ class RoomModel {
 	}
 
 	/**
+	 * Gets the all rooms of the room
+	 * @return {Promise<Array<Object>} - returns an array of rooms
+	 * @throws {Error} - if fetching rooms failed
+	 */
+	async getAllRooms() {
+		let sql = "SELECT * FROM rooms";
+		const result = await dbs.query(sql, []);
+		if (result.rowCount == 0) {
+			throw new Error("Failed to get all rooms");
+		}
+		return result;
+	}
+
+	/**
 	 * Set the name for the room
 	 * @param {string} name - the name of the room
 	 * @return {Promise <{id: string, name: string }>} - returns id and name for the room
@@ -35,7 +49,7 @@ class RoomModel {
 		let sql = "INSERT INTO rooms (name) VALUES ($1) RETURNING id, name";
 		const args = [name];
 		const result = await dbs.query(sql, args);
-		const row = result.rows[0];
+		const row = result;
 		if (!row) {
 			throw new Error("Error adding the room.");
 		}
@@ -62,13 +76,13 @@ class RoomModel {
 	 */
 
 	async deleteRoom(id) {
-		const client = await dbs.pool.connect();
+		const client = await dbs.db.connect();
 		try {
 			await client.query("BEGIN");
 
 			const result = await DeviceModel.deleteDeviceRoomID(id, client);
 
-			await client.query("DELETE FROM rooms WHERE id_room = $1", [id]);
+			await client.query("DELETE FROM rooms WHERE id = $1", [id]);
 			await client.query("COMMIT");
 
 			return result.rowCount;

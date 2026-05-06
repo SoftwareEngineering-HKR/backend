@@ -5,6 +5,7 @@ import { router } from "./service/Routes.js";
 import BluetoothService from "./service/BluetoothService.js";
 import express from "express";
 import cookieParser from "cookie-parser";
+import UserModel from "./model/UserModel.js";
 
 const app = express();
 
@@ -25,4 +26,9 @@ try {
 	await BluetoothService.start();
 } catch (error) {
 	console.error(error);
+}
+
+const result = await UserModel.getAllUsers();
+if (result.length == 0) {
+	await UserModel.addUser("admin", "password", "admin");
 }
