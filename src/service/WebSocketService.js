@@ -87,12 +87,12 @@ export class WebSocketService {
 		});
 
 		UserDevicesModel.on("deletedUserFromDevice", ({ userID, device }) => {
-			this.#socketClients.get(userID).forEach((ws) => {
+			this.#socketClients.get(userID)?.forEach((ws) => {
 				const clients = this.#deviceClients.get(device.id);
 				if (!clients) {
 					return;
 				}
-				clients.delete(ws)
+				clients.delete(ws);
 			});
 			this.#sendDeviceMessageToFrontend(device.id, "removed device from user", device, userID);
 		});
