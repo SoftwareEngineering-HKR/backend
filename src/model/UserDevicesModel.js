@@ -42,6 +42,43 @@ class UserDeviceModel extends EventEmitter {
 		}
 		return result.rowCount > 0;
 	}
-}
 
+	/**
+	 * Delete a user from a device
+	 * @param {string} userID - UUID to identify the user taken from the data payload
+	 * @param {string} deviceId - VARCHAR that identifies the device
+	 * @return {Promise<boolean>} - returns true if user was able to be connected to the device
+	 * @throws {Error} - throws error if the query fails
+	 */
+	async deleteUserFromDevice(userID, deviceId) {
+		const sql = `DELETE FROM user_devices WHERE id_user = $1 AND id_device = $2`;
+		const args = [userID, deviceId];
+		const result = await dbs.query(sql, args);
+		const devices = await DeviceModel.getDevicesByIDs([deviceId]);
+		const device = devices[0];
+		if (result) {
+			this.emit("deletedUserFromDevice", { userID, device });
+		}
+		return result.rowCount > 0;
+	}
+
+	/**
+	 * Delete a yourself from a device
+	 * @param {string} userID - UUID to identify the user from webtoken UsedId
+	 * @param {string} deviceId - VARCHAR that identifies the device
+	 * @return {Promise<boolean>} - returns true if user was able to be connected to the device
+	 * @throws {Error} - throws error if the query fails
+	 */
+	async deleteYourselfFromDevice(userID, deviceId) {
+		const sql = `DELETE FROM user_devices WHERE id_user = $1 AND id_device = $2`;
+		const args = [userID, deviceId];
+		const result = await dbs.query(sql, args);
+		const devices = await DeviceModel.getDevicesByIDs([deviceId]);
+		const device = devices[0];
+		if (result) {
+			this.emit("delete yourself from device", { userID, device });
+		}
+		return result.rowCount > 0;
+	}
+}
 export default new UserDeviceModel();

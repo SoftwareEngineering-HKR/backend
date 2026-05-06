@@ -208,6 +208,34 @@ export class WSHandler {
 		}
 	}
 	/**
+	 * So that the admin can delete themself from a device
+	 * @param {JSON} data object payload from message
+	 */
+	async deleteUserFromDevice(data){
+		try{
+			await UserDeviceModel.deleteUserFromDevice(data.userId, data.deviceId);
+			return this.constructFrontendResponse(200, "Successfully deleted user from device!");
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to remove user from device.");
+		}
+	}
+	
+	/**
+	 * So that the user themself can delete themself from a device
+	 * @param {userId} string - Id for the user sending the request 
+	 */
+
+	async deleteYourselfFromDevice(userId, data){
+		try{
+			await UserDeviceModel.deleteYourselfFromDevice(userId, data.deviceId);
+			return this.constructFrontendResponse(200, "Successfully deleted user from device!");
+		} catch (e) {
+			console.error(e);
+			return this.constructFrontendResponse(500, "Failed to remove user from device.");
+		}
+	}
+	/**
 	 * Response messages for the frontend after user actions
 	 * @param {number} statusCode - the status code
 	 * @param {string | undefined} message - optional message to the frontend
@@ -257,6 +285,8 @@ export class WSHandler {
 			return this.constructFrontendResponse(500, "Failed to get users.");
 		}
 	}
+
+
 }
 
 export const handler = new WSHandler();
@@ -284,6 +314,8 @@ export const messagehandler = async (type, payload, userId) => {
 		"update user role": handler.setUserRole.bind(handler),
 		"delete user": handler.deleteUser.bind(handler),
 		"add user to device": handler.addUserToDevice.bind(handler),
+		"deletedUserFromDevice": handler.deleteUserFromDevice.bind(handler),
+		"delete yourself from device": handler.deleteYourselfFromDevice.bind(handler)
 	};
 
 	const handelfunction = handlers[type];
@@ -307,4 +339,6 @@ export const permissions = {
 	"update user role": ["admin"],
 	"delete user": ["admin"],
 	"add user to device": ["admin"],
+	"deletedUserFromDevice": ["admin"],
+	"delete yourself from device": ["admin", "user"],
 };
