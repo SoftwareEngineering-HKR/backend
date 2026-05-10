@@ -1,5 +1,6 @@
 import RoomModel from '../../src/model/RoomModel.js';
 import DatabaseService from "../../src/service/DatabaseService.js";
+import DeviceModel from '../../src/model/DeviceModel.js';
 import { expect } from "chai";
 import sinon from "sinon";
 
@@ -53,18 +54,86 @@ describe("RoomModel", function() {
         }
     });
     it("updateRoom - should return true if update succeeds", async () => {
+
+        const roomId = "b42410ee-132f-42ee-9e4f-09a6485c95b8";
         sinon.stub(DatabaseService, "query").resolves({ length: 1 });
 
-        const result = await RoomModel.updateRoom("1", "Kitchen");
+        const result = await RoomModel.updateRoom(roomId, "Kitchen");
 
         expect(result).to.equal(true);
     });
 
     it("updateRoom - should return false if no row updated", async () => {
+    const roomId = "b42410ee-132f-42ee-9e4f-09a6485c95b8";
         sinon.stub(DatabaseService, "query").resolves({ rowCount: 0 });
 
-        const result = await RoomModel.updateRoom("1", "Kitchen");
+        const result = await RoomModel.updateRoom(roomId, "Kitchen");
 
         expect(result).to.equal(false);
     });
+    it("deleteRoom - deletes room successfully", async () => {
+        querystub = sinon.stub();
+
+        querystub.onCall(0).resolves();
+        querystub.onCall(1).resolves();
+        querystub.onCall(2).resolves();
+
+        const releasestub = sinon.stub();
+
+        const fakeClient = {
+            query: querystub,
+            release: releasestub
+        };
+
+        sinon.stub(DatabaseService.db, "connect")
+            .resolves(fakeClient);
+
+        sinon.stub(DeviceModel, "deleteDeviceRoomID")
+            .resolves([{ id: "device1" }]);
+
+        const result = await RoomModel.deleteRoom(
+            "b42410ee-132f-42ee-9e4f-09a6485c95b8"
+        );
+
+        expect(result).to.equal(true);
+
+        expect(querystub.firstCall.args[0]).to.equal("BEGIN");
+
+        expect(querystub.thirdCall.args[0]).to.equal("COMMIT");
+
+        expect(releasestub.calledOnce).to.be.true;
+    });
+    it("deleteRoom - rolls back transaction on failure", async () => {
+       querystub = sinon.stub();
+
+        querystub.onFirstCall().resolves();
+        querystub.onSecondCall().resolves();
+
+        const releasestub = sinon.stub();
+
+        const fakeClient = {
+            query: querystub,
+            release: releasestub
+        };
+
+        sinon.stub(DatabaseService.db, "connect")
+            .resolves(fakeClient);
+
+        sinon.stub(DeviceModel, "deleteDeviceRoomID")
+            .rejects(new Error("DB failure"));
+
+        try {
+            await RoomModel.deleteRoom(
+                "b42410ee-132f-42ee-9e4f-09a6485c95b8"
+            );
+
+            throw new Error("Expected error not thrown");
+        } catch (err) {
+            expect(err.message).to.equal("DB failure");
+        }
+
+        expect(querystub.secondCall.args[0]).to.equal("ROLLBACK");
+
+        expect(releasestub.calledOnce).to.be.true;
+});
 })

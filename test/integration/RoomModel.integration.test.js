@@ -36,4 +36,15 @@ describe("RoomModel Integration Test", function () {
         expect(result.length).to.equal(1);
         expect(result[0].name).to.equal(roomName);
     });
+
+    it("deleteRoom - Should delete a  room ", async () => {
+        await RoomModel.deleteRoom(roomId);
+
+        const result = await dbs.query(
+            "SELECT * FROM rooms WHERE id = $1",
+            [roomId]
+        );
+
+        expect(result.length).to.equal(0);
+    });
 });

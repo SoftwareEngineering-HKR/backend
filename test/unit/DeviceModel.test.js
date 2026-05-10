@@ -8,6 +8,7 @@ describe("DeviceModel", function() {
     let querystub;
     let scalestub;
     let emitstub;
+    let devicestub;
 
     afterEach(() => {
         if(querystub) sinon.restore();
@@ -231,5 +232,117 @@ describe("DeviceModel", function() {
         expect(result).to.equal(rows);
     });
 
+    it("setValue - emits publish event for valid value", async () => {
+        devicestub = sinon.stub(DeviceModel, "getDeviceInfo")
+            .resolves({ type: "slider" });
 
+        scalestub = sinon.stub(scale, "getValue")
+            .resolves({
+                min_value: 0,
+                max_value: 100
+            });
+
+        devicestub = sinon.stub(DeviceModel, "checkifDeviceIsSensor")
+            .resolves(false);
+
+        emitstub = sinon.stub(DeviceModel, "emit");
+
+        await DeviceModel.setValue("device1", 50);
+
+        expect(emitstub.calledOnce).to.be.true;
+
+        expect(
+            emitstub.calledWith("sendPublish", {
+                id: "device1",
+                value: 50
+            })
+        ).to.be.true;
+
+    });
+    it("setValue - throws if display string is too long", async () => {
+         sinon.stub(DeviceModel, "getDeviceInfo")
+            .resolves({ type: "display" });
+
+        sinon.stub(scale, "getValue")
+            .resolves({
+                max_value: 5
+            });
+
+        try {
+            await DeviceModel.setValue("device1", "toolong");
+
+            throw new Error("Expected error not thrown");
+        } catch (err) {
+            expect(err.message).to.equal("String too long");
+        }
+
+    });
+
+    it("setValue - throws if device is sensor", async () => {
+        sinon.stub(DeviceModel, "getDeviceInfo")
+            .resolves({ type: "slider" });
+
+        sinon.stub(scale, "getValue")
+            .resolves({
+                min_value: 0,
+                max_value: 100
+            });
+
+        sinon.stub(DeviceModel, "checkifDeviceIsSensor")
+            .resolves(true);
+
+        try {
+            await DeviceModel.setValue("device1", 50);
+
+            throw new Error("Expected error not thrown");
+        } catch (err) {
+            expect(err.message)
+                .to.equal("Device's value cannot be modified.");
+        }
+    });
+
+    it("setValue - throws if value outside allowed range", async () => {
+        sinon.stub(DeviceModel, "getDeviceInfo")
+            .resolves({ type: "slider" });
+
+        sinon.stub(scale, "getValue")
+            .resolves({
+                min_value: 0,
+                max_value: 100
+            });
+
+        sinon.stub(DeviceModel, "checkifDeviceIsSensor")
+            .resolves(false);
+
+        try {
+            await DeviceModel.setValue("device1", 200);
+
+            throw new Error("Expected error not thrown");
+        } catch (err) {
+            expect(err.message)
+                .to.equal("Value outside of allowed range.");
+        }
+
+    });
+    it("checkifDeviceIsSensor - returns sensor status", async () => {
+        sinon.stub(DatabaseService, "query")
+            .resolves([{ sensor: true }]);
+
+        const result = await DeviceModel.checkifDeviceIsSensor("device1");
+
+        expect(result).to.equal(true);
+
+    });
+    it("checkifDeviceIsSensor - throws if device not found", async () => {
+        sinon.stub(DatabaseService, "query")
+            .resolves([]);
+
+        try {
+            await DeviceModel.checkifDeviceIsSensor("device1");
+
+            throw new Error("Expected error not thrown");
+        } catch (err) {
+            expect(err.message).to.equal("Device not found");
+        }
+    });
 })

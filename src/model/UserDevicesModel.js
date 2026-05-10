@@ -32,15 +32,16 @@ class UserDeviceModel extends EventEmitter {
 	 * @throws {Error} - throws error if the query fails
 	 */
 	async addUserToDevice(userID, deviceId) {
-		const sql = `INSERT INTO user_devices (id_user, id_device) VALUES ($1, $2)`;
+		const sql = `INSERT INTO user_devices (id_user, id_device) VALUES ($1, $2) RETURNING id_user`;
 		const args = [userID, deviceId];
 		const result = await dbs.query(sql, args);
 		const devices = await DeviceModel.getDevicesByIDs([deviceId]);
 		const device = devices[0];
-		if (result) {
+		if (result.length > 0) {
 			this.emit("addedUserToID", { userID, device });
+			return true;
 		}
-		return result.lenght > 0;
+		return false;
 	}
 }
 
