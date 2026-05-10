@@ -90,7 +90,12 @@ router.post("/signup", async (req, res) => {
 		const accessToken = authmodel.createAccessJWToken(user.id, user.type);
 		const refreshToken = authmodel.createRefreshToken(user.id, user.type, ip);
 
-		RefreshModel.addToken(refreshToken, user.id, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), ip);
+		await RefreshModel.addToken(
+			refreshToken,
+			user.id,
+			new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+			ip,
+		);
 
 		res.cookie("jwt", refreshToken, {
 			httpOnly: true,
