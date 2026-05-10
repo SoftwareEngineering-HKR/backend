@@ -84,6 +84,7 @@ class UserModel {
 			throw new Error("No user was found");
 		}
 		const row = result[0];
+
 		return row;
 	}
 
@@ -151,7 +152,7 @@ class UserModel {
 		if (!success) {
 			throw new Error("Wrong password!");
 		}
-		let sql = "UPDATE users SET password = $1 WHERE id = $2";
+		let sql = "UPDATE users SET password = $1 WHERE id = $2 RETURNING id";
 		const salt = 10;
 		const newPassHash = await bcrypt.hash(newPassword, salt);
 		const arg = [newPassHash, userId];
@@ -167,7 +168,7 @@ class UserModel {
 	 * @returns {Promise<boolean>} True if the deletion was successful, false otherwise.
 	 */
 	async deleteUser(userName) {
-		let sql = "DELETE FROM users WHERE username = $1";
+		let sql = "DELETE FROM users WHERE username = $1 RETURNING id";
 		const arg = [userName];
 		const result = await dbs.query(sql, arg);
 		if (result.length === 0) {
@@ -192,7 +193,6 @@ class UserModel {
 		if (!success) {
 			throw new Error("Invalid username or password.");
 		}
-
 		return user;
 	}
 
@@ -204,7 +204,7 @@ class UserModel {
 	 * @return {Promise<boolean>} - Returns true if promotion complete
 	 */
 	async setUserRole(userName, role) {
-		const sql = "UPDATE users SET type = $1 WHERE user = $2 AND type != $1";
+		const sql = "UPDATE users SET type = $1 WHERE username = $2 AND type != $1 RETURNING type";
 		const arg = [role, userName];
 		const result = await dbs.query(sql, arg);
 		if (result.length === 0) {

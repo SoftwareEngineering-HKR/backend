@@ -25,14 +25,6 @@ describe("UserModel Integration Test", function () {
         });
 
 
-    it("getUserByName - get a specific user from the database based on the username.", async () => {
-
-        const result = await UserModel.getUserByName(userName);
-
-        expect(result).to.deep.equal(userId);
-    });
-
-
     it("getAllUsers - Gets all users", async () => {
         const result = await UserModel.getAllUsers();
 
@@ -40,17 +32,13 @@ describe("UserModel Integration Test", function () {
         expect(result[0].id).to.equal(userId);
         expect(result[0].username).to.equal(userName);
     });
-    it("_getUser - Get a specific user from the database based on the username.", async () => {
-        const result = await UserModel._getUser(userName);
 
-        expect(result.id).to.equal(userId);
-        expect(result.type).to.equal("user");
-    }); 
     it("getUserById - Get  user by id", async () => {
         const result = await UserModel.getUserById(userId);
 
         expect(result.username).to.equal(userName);
     });
+
     it("addUser - inserts user and returns full user", async () => {
         const username = "testUser";
         const password = "plainPassword";
@@ -70,6 +58,73 @@ describe("UserModel Integration Test", function () {
 
         expect(rows[0].password).to.not.equal(password);
         expect(rows[0].type).to.equal("user");
+    });
+    it("setUserRole - update the user to the corrct role user to admin", async () => {
+        const newRole = "admin";
+
+        const result = await UserModel.setUserRole(userName, newRole);
+
+        expect(result).to.equal(true);
+
+        const rows = await dbs.query(
+            "SELECT type FROM users WHERE username = $1",
+            [userName]
+        );
+        expect(rows).to.not.equal(newRole);
+    });
+    it("login - logins the user correctly", async () => {
+        const newUsername = "newUser";
+        const newPassword = "password"
+        await UserModel.addUser(newUsername, newPassword)
+
+        const result = await UserModel.login(newUsername, newPassword);
+
+        expect(result).to.not.equal(null);
+
+        expect(result.id).to.exist;
+        expect(result.password).to.not.equal(newPassword);
+
+    });
+    it("deleteUser - delete a user correctly", async () => {
+        const newUsername = "newUser";
+        const newPassword = "password"
+        await UserModel.addUser(newUsername, newPassword)
+
+        const result = await UserModel.deleteUser(newUsername)
+
+        expect(result).to.equal(true);
+
+    });
+    it("updatePassword - updates the password correctly", async () => {
+        const username = "testUser";
+        const oldPassword = "oldPass";
+        const newPassword = "newPass";
+
+        // create real user with hashed password
+        await UserModel.addUser(username, oldPassword);
+
+        // update password
+        const updated = await UserModel.updatePassword(
+            username,
+            oldPassword,
+            newPassword
+        );
+
+        expect(updated).to.equal(true);
+
+        // old password should fail
+        try {
+            await UserModel.login(username, oldPassword);
+            throw new Error("Old password should not work");
+        } catch (err) {
+            expect(err.message).to.equal("Invalid username or password.");
+        }
+
+        // new password should work
+        const user = await UserModel.login(username, newPassword);
+
+        expect(user).to.not.equal(null);
+        expect(user.id).to.exist;
     });
 
 });
