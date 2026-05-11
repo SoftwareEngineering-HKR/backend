@@ -8,11 +8,11 @@ class RefreshModel {
 		if (result.length > 0) {
 			return true;
 		} else {
-			throw false;
+			return false;
 		}
 	}
 	async addToken(token, user_id, expires, ip) {
-		const sql = "INSERT INTO refresh_tokens (token, user_id, expires, ip) VALUES ($1, $2, $3, $4)";
+		const sql = "INSERT INTO refresh_tokens (token, user_id, expires, ip) VALUES ($1, $2, $3, $4) RETURNING token";
 		const args = [token, user_id, expires, ip];
 		const result = await dbs.query(sql, args);
 		if (result.length > 0) {
@@ -26,7 +26,6 @@ class RefreshModel {
 		const sql = "UPDATE refresh_tokens SET revoked = true WHERE token = $1 RETURNING revoked";
 		const args = [token];
 		const result = await dbs.query(sql, args);
-		console.log(result);
 		if (result.length > 0) {
 			return true;
 		} else {

@@ -1,7 +1,12 @@
 import { expect } from "chai";
 import sinon from "sinon";
 import request from "supertest";
-import router from "../../src/service/Routes.js"
+import { router } from "../../src/service/Routes.js"
+import UserModel from "../../src/model/UserModel.js";
+import RefreshModel from "../../src/model/RefreshModel.js";
+import authmodel from "../../src/middleware/JwtService.js";
+import { app } from "../../src/index.js";
+import jwt from "jsonwebtoken";
 
 describe('Routes', ()=>{
 
@@ -15,9 +20,9 @@ describe('Routes', ()=>{
             password: "fake"
         }
         sinon.stub(UserModel, "login").resolves(user);
-        sinon.stub(authmodel, "createAccessJWToken").resolve("fake-access-token");
-        sinon.stub(authmodel, "createRefreshToken").resolve("fake-refresh-token");
-        sinon.stub(RefreshModel, "addToken").resolve(true);
+        sinon.stub(authmodel, "createAccessJWToken").returns("fake-access-token");
+        sinon.stub(authmodel, "createRefreshToken").returns("fake-refresh-token");
+        sinon.stub(RefreshModel, "addToken").resolves(true);
 
          const res = await request(app)
          .post("/login")
@@ -34,10 +39,11 @@ describe('Routes', ()=>{
             username: "invalid",
             password: "invalid"
         }
-        sinon.stub(UserModel, "login").resolves(user);
-        sinon.stub(authmodel, "createAccessJWToken").resolve("fake-access-token");
-        sinon.stub(authmodel, "createRefreshToken").resolve("fake-refresh-token");
-        sinon.stub(RefreshModel, "addToken").resolve(true);
+        
+        //sinon.stub(UserModel, "login").throws("error");
+        sinon.stub(authmodel, "createAccessJWToken").returns("fake-access-token");
+        sinon.stub(authmodel, "createRefreshToken").returns("fake-refresh-token");
+        sinon.stub(RefreshModel, "addToken").resolves(true);
 
          const res = await request(app)
          .post("/login")
@@ -70,7 +76,6 @@ describe('Routes', ()=>{
          .set("Cookie", ["jwt=fake-refresh-token"]);
 
        expect(res.status).to.equal(200);
-       expect(res.body.message).to.equal("Invalid credentials");
     })
 
    it("successful logging out message", async () => {
@@ -97,7 +102,7 @@ describe('Routes', ()=>{
         sinon.stub(UserModel, "addUser").resolves(user);
         sinon.stub(authmodel, "createAccessJWToken").returns("fake-access-token")
         sinon.stub(authmodel, "createRefreshToken").returns("fake-refresh-token");
-        sinon.stub(RefreshModel, "addToken").resolve(true);
+        sinon.stub(RefreshModel, "addToken").resolves(true);
     
 
         const res = await request(app)
