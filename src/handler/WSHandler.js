@@ -293,8 +293,32 @@ export const handler = new WSHandler();
  * @param {JSON} type the message type
  * @param {JSON} payload the message payload
  * @param {JSON} userId of the user that sent the message
+ * @param {String} userType of user role
  */
-export const messagehandler = async (type, payload, userId) => {
+export const messagehandler = async (type, payload, userId, userType) => {
+	const permissions = {
+		"get users": ["admin"],
+		"create room": ["admin"],
+		"create device": ["admin"],
+		"update device": ["admin"],
+		"update room": ["admin"],
+		"delete room": ["admin"],
+		"update device room": ["admin"],
+		"delete device": ["admin"],
+		"update value": ["admin", "user"],
+		"get all device info": ["admin"],
+		"get all rooms": ["admin", "user"],
+		"get bluetooth devices": ["admin"],
+		"connect bluetooth device": ["admin"],
+		"update user role": ["admin"],
+		"delete user": ["admin"],
+		"add user to device": ["admin"],
+		"delete user from device": ["admin"],
+		"delete yourself from device": ["admin", "user"],
+	};
+	if (!permissions[type].includes(userType)) {
+		return handler.constructFrontendResponse(403, "Permission denied!");
+	}
 	const handlers = {
 		"get users": handler.getUsers.bind(handler),
 		"create room": handler.create_room.bind(handler),
@@ -318,25 +342,4 @@ export const messagehandler = async (type, payload, userId) => {
 
 	const handelfunction = handlers[type];
 	return await handelfunction(payload, userId);
-};
-
-export const permissions = {
-	"get users": ["admin"],
-	"create room": ["admin"],
-	"create device": ["admin"],
-	"update device": ["admin"],
-	"update room": ["admin"],
-	"delete room": ["admin"],
-	"update device room": ["admin"],
-	"delete device": ["admin"],
-	"update value": ["admin", "user"],
-	"get all device info": ["admin"],
-	"get all rooms": ["admin", "user"],
-	"get bluetooth devices": ["admin"],
-	"connect bluetooth device": ["admin"],
-	"update user role": ["admin"],
-	"delete user": ["admin"],
-	"add user to device": ["admin"],
-	"delete user from device": ["admin"],
-	"delete yourself from device": ["admin", "user"],
 };
