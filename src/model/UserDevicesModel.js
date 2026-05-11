@@ -60,7 +60,7 @@ class UserDeviceModel extends EventEmitter {
 		if (result) {
 			this.emit("deletedUserFromDevice", { userID, device });
 		}
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 }
 export default new UserDeviceModel();

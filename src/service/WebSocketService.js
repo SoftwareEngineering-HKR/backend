@@ -1,5 +1,5 @@
 import WebSocket, { WebSocketServer } from "ws";
-import { messagehandler, handler, permissions } from "../handler/WSHandler.js";
+import { messagehandler, handler } from "../handler/WSHandler.js";
 import DeviceModel from "../model/DeviceModel.js";
 import jwt from "jsonwebtoken";
 import url from "url";
@@ -24,11 +24,7 @@ export class WebSocketService {
 			console.log("WebSocket server is running on port 8080");
 		});
 
-		// TODO: this should be replaced later by parsing the UserID from the access token
-		//const userId = "6a77949f-4a2d-4d17-9fc2-62c7249d1a58";
-		//const userRole = "admin";
 		this.#wss.on("connection", (ws, req) => {
-			// TODO: this should be replaced later by parsing the userRole from the access token
 			console.log("Client connected");
 			var token = url.parse(req.url, true).query.token;
 
@@ -47,14 +43,9 @@ export class WebSocketService {
 				ws.on("message", async (data) => {
 					try {
 						const mesg = JSON.parse(data);
-						if (!permissions[mesg.type].includes(decoded.role)) {
-							ws.send(JSON.stringify(handler.constructFrontendResponse(403, "Permission denied!")));
-						} else {
-							const response = await messagehandler(mesg.type, mesg.payload, decoded.sub);
-
-							if (response && ws.readyState === WebSocket.OPEN) {
-								ws.send(JSON.stringify(response));
-							}
+						const response = await messagehandler(mesg.type, mesg.payload, decoded.sub, decoded.role);
+						if (response && ws.readyState === WebSocket.OPEN) {
+							ws.send(JSON.stringify(response));
 						}
 					} catch (e) {
 						console.error("Unexpected message", e);
