@@ -37,12 +37,15 @@ router.post("/login", async (req, res) => {
 
 router.post("/refresh", async (req, res) => {
 	const refreshToken = req.cookies.jwt;
-	const oldToken = await RefreshModel.getToken(refreshToken);
-	if (!oldToken) {
-		return res.status(403).json({ message: "Refresh token invalid/revoked" });
+	if (!refreshToken) {
+		return res.status(401).json({ message: "No refresh token" });
 	}
 
 	try {
+		const oldToken = await RefreshModel.getToken(refreshToken);
+		if (!oldToken) {
+			return res.status(403).json({ message: "Refresh token invalid/revoked" });
+		}
 		await RefreshModel.revokeToken(refreshToken);
 		const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
 		const accessToken = authmodel.createAccessJWToken(decoded.sub, decoded.role);

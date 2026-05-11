@@ -109,7 +109,7 @@ describe('Routes', ()=>{
          .post("/signup")
          .send({
             username: "fake",
-            password: "fake"})
+            password: "fakefakefake"})
         expect(res.status).to.equal(200);
         expect(res.body.accessToken).to.equal("fake-access-token");
     });
