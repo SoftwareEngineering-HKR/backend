@@ -52,12 +52,14 @@ class UserDeviceModel extends EventEmitter {
 	 * @throws {Error} - throws error if the query fails
 	 */
 	async deleteUserFromDevice(userID, deviceId) {
-		const sql = `DELETE FROM user_devices WHERE id_user = $1 AND id_device = $2`;
+		const sql = `DELETE FROM user_devices WHERE id_user = $1 AND id_device = $2 RETURNING id_user`;
 		const args = [userID, deviceId];
 		const result = await dbs.query(sql, args);
 		const devices = await DeviceModel.getDevicesByIDs([deviceId]);
 		const device = devices[0];
-		if (result) {
+		if (result.length == 0) {
+			throw "User or device not connected";
+		} else {
 			this.emit("deletedUserFromDevice", { userID, device });
 		}
 		return result.length > 0;

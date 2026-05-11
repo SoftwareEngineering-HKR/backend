@@ -71,11 +71,14 @@ describe("RoomModel", function() {
 
         expect(result).to.equal(false);
     });
+    
     it("deleteRoom - deletes room successfully", async () => {
         querystub = sinon.stub();
 
         querystub.onCall(0).resolves();
-        querystub.onCall(1).resolves();
+        querystub.onCall(1).resolves({
+            rowCount: 1, 
+            rows: [{ id: "b42410ee-132f-42ee-9e4f-09a6485c95b8" }]});
         querystub.onCall(2).resolves();
 
         const releasestub = sinon.stub();
@@ -103,6 +106,7 @@ describe("RoomModel", function() {
 
         expect(releasestub.calledOnce).to.be.true;
     });
+
     it("deleteRoom - rolls back transaction on failure", async () => {
        querystub = sinon.stub();
 

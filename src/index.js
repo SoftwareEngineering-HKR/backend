@@ -29,6 +29,6 @@ try {
 }
 
 const result = await UserModel.getAllUsers();
-if (result.length == 0) {
+if (!result) {
 	await UserModel.addUser("admin", "password", "admin");
 }

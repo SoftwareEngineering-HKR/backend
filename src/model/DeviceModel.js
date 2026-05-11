@@ -39,7 +39,7 @@ class DeviceModel extends EventEmitter {
 		let sql = "SELECT name, description, type FROM devices WHERE id = $1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		if (!result || result.length === 0 ) {
+		if (!result || result.length === 0) {
 			throw new Error("No device with that id was found.");
 		}
 		return { name: result[0].name, description: result[0].description, type: result[0].type };
@@ -103,10 +103,13 @@ class DeviceModel extends EventEmitter {
 	 */
 
 	async updateDevice(id, name, description) {
-		const sql = "UPDATE devices SET name = $1, description = $2  WHERE id = $3";
+		const sql = "UPDATE devices SET name = $1, description = $2  WHERE id = $3 RETURNING id";
 		const args = [name, description, id];
 		const result = await dbs.query(sql, args);
 		this.emit("updateDevice", { id, name, description });
+		if (result.length == 0) {
+			throw "No device by that id";
+		}
 		return result.length > 0;
 	}
 
@@ -117,9 +120,12 @@ class DeviceModel extends EventEmitter {
 	 */
 
 	async deleteDevice(id) {
-		const sql = "DELETE FROM devices WHERE id = $1";
+		const sql = "DELETE FROM devices WHERE id = $1 RETURNING id";
 		const args = [id];
 		const result = await dbs.query(sql, args);
+		if (result.length == 0) {
+			throw "no device";
+		}
 		return result.length > 0;
 	}
 
@@ -131,12 +137,9 @@ class DeviceModel extends EventEmitter {
 
 	async deleteDeviceRoomID(id_room, client = null) {
 		const waiting = client ?? dbs.pool;
-		const result = await waiting.query("DELETE FROM devices WHERE id_room = $1 RETURNING id", [id_room]);
-		if (result.length > 0) {
-			for (const row of result) {
-				this.emit("deviceDeleted", { id: row.id });
-			}
-		}
+		const result = await waiting.query("UPDATE devices SET id_room = null WHERE id_room = $1 RETURNING id", [
+			id_room,
+		]);
 		return result.length > 0;
 	}
 	/**
@@ -342,8 +345,11 @@ class DeviceModel extends EventEmitter {
 	 * @throws {Error} - if query was not successful
 	 */
 	async updateDeviceRoom(id, room_id) {
-		const sql = `UPDATE devices SET id_room = $1 WHERE id = $2`;
-		await dbs.query(sql, [room_id || null, id]);
+		const sql = `UPDATE devices SET id_room = $1 WHERE id = $2 RETURNING id`;
+		const result = await dbs.query(sql, [room_id || null, id]);
+		if (result.length == 0) {
+			throw "No update to room";
+		}
 	}
 }
 

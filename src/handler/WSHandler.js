@@ -316,7 +316,7 @@ export const messagehandler = async (type, payload, userId, userType) => {
 		"delete user from device": ["admin"],
 		"delete yourself from device": ["admin", "user"],
 	};
-	if (!permissions[type].includes(userType)) {
+	if (!permissions[type]?.includes(userType)) {
 		return handler.constructFrontendResponse(403, "Permission denied!");
 	}
 	const handlers = {

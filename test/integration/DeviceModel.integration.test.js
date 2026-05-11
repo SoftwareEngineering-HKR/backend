@@ -129,7 +129,6 @@ describe("DeviceModel Integration Test", function () {
             "SELECT * FROM devices WHERE id = $1",
             [id]
         );
-
-        expect(secondRes.length).to.equal(0);
+        expect(secondRes[0].id_room).to.equal(null);
     });
 });

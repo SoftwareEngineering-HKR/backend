@@ -8,6 +8,7 @@ describe("RoomModel Integration Test", function () {
 
     before(async () => {
         await dbs.connect();
+        
     });
 
     beforeEach(async () => {
@@ -37,14 +38,17 @@ describe("RoomModel Integration Test", function () {
         expect(result[0].name).to.equal(roomName);
     });
 
-    it("deleteRoom - Should delete a  room ", async () => {
+    it("deleteRoom - Should delete a room ", async () => {
+        await dbs.query(
+            "INSERT INTO rooms (id, name) VALUES ($1, $2)",
+            [roomId, roomName]
+        )
         await RoomModel.deleteRoom(roomId);
 
         const result = await dbs.query(
             "SELECT * FROM rooms WHERE id = $1",
             [roomId]
         );
-
         expect(result.length).to.equal(0);
     });
 });

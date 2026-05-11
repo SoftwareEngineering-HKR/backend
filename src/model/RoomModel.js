@@ -18,7 +18,7 @@ class RoomModel {
 		const args = [id];
 		const result = await dbs.query(sql, args);
 		const row = result[0];
-		if (!row ) {
+		if (!row) {
 			throw new Error("No room with that id was found.");
 		}
 		return { name: row.name };
@@ -32,7 +32,7 @@ class RoomModel {
 	async getAllRooms() {
 		let sql = "SELECT * FROM rooms";
 		const result = await dbs.query(sql, []);
-		if (result.length > 0 || !result) {
+		if (result.length < 0 || !result) {
 			throw new Error("Failed to get all rooms");
 		}
 		return result;
@@ -63,9 +63,12 @@ class RoomModel {
 	 * @return {Promise<boolean>} - returns true if update was successfull
 	 */
 	async updateRoom(id, name) {
-		const sql = "UPDATE rooms SET name = $1 WHERE id = $2";
+		const sql = "UPDATE rooms SET name = $1 WHERE id = $2 RETURNING id";
 		const args = [name, id];
 		const result = await dbs.query(sql, args);
+		if (result.length == 0) {
+			throw "no rooms";
+		}
 		return result.length > 0;
 	}
 
@@ -80,12 +83,14 @@ class RoomModel {
 		try {
 			await client.query("BEGIN");
 
-			const result = await DeviceModel.deleteDeviceRoomID(id, client);
+			await DeviceModel.deleteDeviceRoomID(id, client);
 
-			await client.query("DELETE FROM rooms WHERE id = $1", [id]);
+			const deleted = await client.query("DELETE FROM rooms WHERE id = $1 RETURNING id", [id]);
 			await client.query("COMMIT");
-
-			return result.length > 0;
+			if (deleted.rowCount == 0) {
+				throw "no rooms";
+			}
+			return deleted.rowCount > 0;
 		} catch (e) {
 			await client.query("ROLLBACK");
 			throw e;
