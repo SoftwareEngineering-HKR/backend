@@ -32,16 +32,35 @@ class UserDeviceModel extends EventEmitter {
 	 * @throws {Error} - throws error if the query fails
 	 */
 	async addUserToDevice(userID, deviceId) {
-		const sql = `INSERT INTO user_devices (id_user, id_device) VALUES ($1, $2)`;
+		const sql = `INSERT INTO user_devices (id_user, id_device) VALUES ($1, $2) RETURNING id_user`;
+		const args = [userID, deviceId];
+		const result = await dbs.query(sql, args);
+		const devices = await DeviceModel.getDevicesByIDs([deviceId]);
+		const device = devices[0];
+		if (result.length > 0) {
+			this.emit("addedUserToID", { userID, device });
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Delete a user from a device
+	 * @param {string} userID - UUID to identify the user taken from the data payload
+	 * @param {string} deviceId - VARCHAR that identifies the device
+	 * @return {Promise<boolean>} - returns true if user was able to be connected to the device
+	 * @throws {Error} - throws error if the query fails
+	 */
+	async deleteUserFromDevice(userID, deviceId) {
+		const sql = `DELETE FROM user_devices WHERE id_user = $1 AND id_device = $2`;
 		const args = [userID, deviceId];
 		const result = await dbs.query(sql, args);
 		const devices = await DeviceModel.getDevicesByIDs([deviceId]);
 		const device = devices[0];
 		if (result) {
-			this.emit("addedUserToID", { userID, device });
+			this.emit("deletedUserFromDevice", { userID, device });
 		}
 		return result.rowCount > 0;
 	}
 }
-
 export default new UserDeviceModel();

@@ -30,9 +30,8 @@ describe("DatabaseService integration", function () {
         expect(inserted).to.have.lengthOf(1);
         expect(inserted[0].name).to.equal("test entry");
 
-        const rows = await dbs.query("SELECT * FROM test_table");
-
-        expect(rows).to.have.lengthOf(1);
-        expect(rows[0].name).to.equal("test entry");
+        const result = await dbs.query("SELECT * FROM test_table");
+        expect(result).to.have.lengthOf(1);
+        expect(result[0].name).to.equal("test entry");
     });
 });

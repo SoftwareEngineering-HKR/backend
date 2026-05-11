@@ -1,5 +1,6 @@
 //Imports goes here
 import dbs from "../service/DatabaseService.js";
+
 /**
  * Model for the scale
  *
@@ -33,35 +34,37 @@ class ScaleModel {
 	 * @return {Promise<{ row }>} - returns a row that holds id, value, min and max value for that scale
 	 */
 
-	async setValue(device_id, value, min_value, max_value, client = null) {
-		if (client == null) {
-			client = dbs.connect();
-		}
+	async setValue(device_id, value, min_value, max_value, cli = null) {
+		const client = cli ?? dbs;
 		const result = await client.query(
 			"INSERT INTO scales (id_device, value, min_value, max_value)" + "VALUES ($1, $2, $3, $4) RETURNING id",
 			[device_id, value, min_value, max_value],
 		);
-		return result.id;
+		const row = result[0]
+		return row;
 	}
 
 	/**
 	 * Updates the value for that scale
 	 * @param {string} id - UUID to identify the scale
-	 * @param {number} value - the value that will be the current value
+	 * @param {string} value - the value that will be the current value
+	 * @param {string} type - the device type
 	 * @return {Promise<boolean>} - returns true if update was successfull
 	 * @throws {Error} - If the value exceeds min_value or max_value
 	 * @throws {Error} - If the row does not exists
 	 */
 
-	async updateValue(id, value) {
+	async updateValue(id, value, type) {
 		const scale = await this.getValue(id);
-		if (Number(scale.max_value) < value || Number(scale.min_value) > value) {
+		if (type == "display" && scale.max_value < value.length) {
+			throw new Error("String too long");
+		} else if (Number(scale.max_value) < Number(value) || Number(scale.min_value) > Number(value)) {
 			throw new Error("Value can not exceed max value");
 		}
 		const sql = "UPDATE scales SET value = $1 WHERE id_device = $2 RETURNING id_device";
 		const args = [value, id];
 		const result = await dbs.query(sql, args);
-		if (result.rowCount === 0) {
+		if (!result || result.length === 0) {
 			throw new Error("Scale not found");
 		}
 		const row = result[0];
@@ -78,7 +81,7 @@ class ScaleModel {
 		const sql = "DELETE FROM scales WHERE id =$1";
 		const args = [id];
 		const result = await dbs.query(sql, args);
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 }
 

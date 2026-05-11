@@ -29,10 +29,11 @@ class UserModel {
 		let sql = "SELECT id FROM users WHERE username = $1";
 		const arg = [username];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount == 0) {
+		if (result.length == 0) {
 			return null;
 		}
-		const row = result.rows[0];
+		const row = result[0];
+
 		return row.id;
 	}
 
@@ -42,9 +43,9 @@ class UserModel {
 	 * @returns {Promise<Array<Object>>} list of users.
 	 */
 	async getAllUsers() {
-		let sql = "SELECT * FROM users";
+		let sql = "SELECT id, username, type FROM users";
 		const results = await dbs.query(sql);
-		if (results.rowCount == 0) {
+		if (results.length == 0) {
 			return null;
 		}
 		return results;
@@ -61,7 +62,7 @@ class UserModel {
 		let sql = "SELECT id, type, password FROM users WHERE username = $1";
 		const arg = [username];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount == 0) {
+		if (result.length == 0) {
 			return null;
 		}
 		const row = result[0];
@@ -76,13 +77,14 @@ class UserModel {
 	 * @returns {Promise<object>} A user if it exists or false.
 	 */
 	async getUserById(userId) {
-		let sql = "SELECT * FROM users WHERE id = $1";
+		let sql = "SELECT id, username, type FROM users WHERE id = $1";
 		const arg = [userId];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount == 0) {
+		if (result.length == 0) {
 			throw new Error("No user was found");
 		}
 		const row = result[0];
+
 		return row;
 	}
 
@@ -97,10 +99,10 @@ class UserModel {
 		let sql = "SELECT password FROM users WHERE id = $1";
 		const arg = [id];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount == 0) {
+		if (result.length == 0) {
 			throw new Error("No user was found");
 		}
-		const row = result.rows[0];
+		const row = result[0];
 		return row.password;
 	}
 
@@ -111,12 +113,12 @@ class UserModel {
 	 * @param {string} password - password the user choose
 	 * @returns {Promise<user>} The user of the newly created user.
 	 */
-	async addUser(username, password) {
+	async addUser(username, password, type = "user") {
 		const hashedPassword = await this.hashpass(password);
 		let sql;
 		let arg;
-		sql = "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id";
-		arg = [username, hashedPassword];
+		sql = "INSERT INTO users (username, password, type) VALUES ($1, $2, $3) RETURNING id";
+		arg = [username, hashedPassword, type];
 		const result = await dbs.query(sql, arg);
 		const user = await this.getUserById(result[0].id);
 		return user;
@@ -133,7 +135,7 @@ class UserModel {
 		let sql = "UPDATE users SET username = $1 WHERE id = $2";
 		const arg = [username, userId];
 		const result = await dbs.query(sql, arg);
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 
 	/**
@@ -150,12 +152,12 @@ class UserModel {
 		if (!success) {
 			throw new Error("Wrong password!");
 		}
-		let sql = "UPDATE users SET password = $1 WHERE id = $2";
+		let sql = "UPDATE users SET password = $1 WHERE id = $2 RETURNING id";
 		const salt = 10;
 		const newPassHash = await bcrypt.hash(newPassword, salt);
 		const arg = [newPassHash, userId];
 		const result = await dbs.query(sql, arg);
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 
 	/**
@@ -166,13 +168,13 @@ class UserModel {
 	 * @returns {Promise<boolean>} True if the deletion was successful, false otherwise.
 	 */
 	async deleteUser(userName) {
-		let sql = "DELETE FROM users WHERE username = $1";
+		let sql = "DELETE FROM users WHERE username = $1 RETURNING id";
 		const arg = [userName];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount === 0) {
+		if (result.length === 0) {
 			throw new Error("Unable to delete user.");
 		}
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 	/** Login a user
 	 *
@@ -191,7 +193,6 @@ class UserModel {
 		if (!success) {
 			throw new Error("Invalid username or password.");
 		}
-
 		return user;
 	}
 
@@ -203,13 +204,13 @@ class UserModel {
 	 * @return {Promise<boolean>} - Returns true if promotion complete
 	 */
 	async setUserRole(userName, role) {
-		const sql = "UPDATE users SET type = $1 WHERE user = $2 AND type != $1";
+		const sql = "UPDATE users SET type = $1 WHERE username = $2 AND type != $1 RETURNING type";
 		const arg = [role, userName];
 		const result = await dbs.query(sql, arg);
-		if (result.rowCount === 0) {
+		if (result.length === 0) {
 			throw new Error("Wrong username or user already have desired role.");
 		}
-		return result.rowCount > 0;
+		return result.length > 0;
 	}
 }
 

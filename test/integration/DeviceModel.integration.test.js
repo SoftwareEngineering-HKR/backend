@@ -37,7 +37,7 @@ describe("DeviceModel Integration Test", function () {
             "100",
             "-3"
         );
-
+        console.log(result)
         expect(result).to.equal(id);
 
         const deviceRows = await dbs.query(
