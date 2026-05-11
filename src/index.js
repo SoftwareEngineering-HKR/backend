@@ -7,7 +7,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import UserModel from "./model/UserModel.js";
 
-const app = express();
+export const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
