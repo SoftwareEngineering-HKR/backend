@@ -76,7 +76,7 @@ export class WebSocketService {
 		});
 
 		UserDevicesModel.on("addedUserToID", ({ userID, device }) => {
-			this.#socketClients.get(userID).forEach((ws) => {
+			this.#socketClients.get(userID)?.forEach((ws) => {
 				const clients = this.#deviceClients.get(device.id);
 				if (!clients) {
 					this.#deviceClients.set(device.id, new Set());
