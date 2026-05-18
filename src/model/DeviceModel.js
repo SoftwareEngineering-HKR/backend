@@ -110,6 +110,10 @@ class DeviceModel extends EventEmitter {
 		if (result.length == 0) {
 			throw "No device by that id";
 		}
+		const res = await this.getAllDevices();
+		this.emit("deviceChangeAdmin", res);
+		const users = res.filter((device) => device.id == id)[0]?.users;
+		this.emit("deviceChanges", users);
 		return result.length > 0;
 	}
 
@@ -126,6 +130,10 @@ class DeviceModel extends EventEmitter {
 		if (result.length == 0) {
 			throw "no device";
 		}
+		const res = await this.getAllDevices();
+		this.emit("deviceChangeAdmin", res);
+		const users = res.filter((device) => device.id == id)[0]?.users;
+		this.emit("deviceChanges", users);
 		return result.length > 0;
 	}
 
@@ -137,10 +145,14 @@ class DeviceModel extends EventEmitter {
 
 	async deleteDeviceRoomID(id_room, client = null) {
 		const waiting = client ?? dbs.pool;
+
 		const result = await waiting.query("UPDATE devices SET id_room = null WHERE id_room = $1 RETURNING id", [
 			id_room,
 		]);
-		return result.length > 0;
+
+		const updatedDeviceIds = result.rows.map((row) => row.id);
+
+		return updatedDeviceIds;
 	}
 	/**
 	 * Updates the the device's scale
@@ -347,9 +359,14 @@ class DeviceModel extends EventEmitter {
 	async updateDeviceRoom(id, room_id) {
 		const sql = `UPDATE devices SET id_room = $1 WHERE id = $2 RETURNING id`;
 		const result = await dbs.query(sql, [room_id || null, id]);
+		console.log(result);
 		if (result.length == 0) {
 			throw "No update to room";
 		}
+		const res = await this.getAllDevices();
+		this.emit("deviceChangeAdmin", res);
+		const users = res.filter((device) => device.id == id)[0]?.users;
+		this.emit("deviceChanges", users);
 	}
 }
 

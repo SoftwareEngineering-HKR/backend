@@ -40,7 +40,7 @@ class ScaleModel {
 			"INSERT INTO scales (id_device, value, min_value, max_value)" + "VALUES ($1, $2, $3, $4) RETURNING id",
 			[device_id, value, min_value, max_value],
 		);
-		const row = result[0]
+		const row = result[0];
 		return row;
 	}
 

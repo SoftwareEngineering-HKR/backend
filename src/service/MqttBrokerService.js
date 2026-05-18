@@ -44,6 +44,13 @@ export class MqttBrokerService {
 			console.debug("Client connected");
 			this.#socketState.set(socket, { buffers: [], bufferedBytes: 0, clientId: null });
 
+			socket.setTimeout(10000);
+
+			socket.on("timeout", () => {
+				console.debug("socket timeout");
+				socket.destroy();
+			});
+
 			socket.on("data", (data) => {
 				const MAX_BUFFER_BYTES = 1024 * 1024;
 				const state = this.#socketState.get(socket);

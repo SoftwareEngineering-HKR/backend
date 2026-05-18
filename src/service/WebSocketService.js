@@ -4,6 +4,8 @@ import DeviceModel from "../model/DeviceModel.js";
 import jwt from "jsonwebtoken";
 import url from "url";
 import UserDevicesModel from "../model/UserDevicesModel.js";
+import RoomModel from "../model/RoomModel.js";
+import UserModel from "../model/UserModel.js";
 
 export class WebSocketService {
 	/** @type {number} */
@@ -14,6 +16,8 @@ export class WebSocketService {
 	#deviceClients = new Map();
 	/** @type {Map<string, Set<WebSocket>>} */
 	#socketClients = new Map();
+	/** @type {Map<string, Set<WebSocket>>} */
+	#socketAdminClients = new Map();
 
 	/**
 	 * Start the websocket server so that the frontend can communicate with the backend
@@ -40,6 +44,13 @@ export class WebSocketService {
 				}
 				this.#socketClients.get(decoded.sub).add(ws);
 
+				if (decoded.role == "admin") {
+					if (!this.#socketAdminClients.has(decoded.sub)) {
+						this.#socketAdminClients.set(decoded.sub, new Set());
+					}
+					this.#socketAdminClients.get(decoded.sub).add(ws);
+				}
+
 				ws.on("message", async (data) => {
 					try {
 						const mesg = JSON.parse(data);
@@ -61,6 +72,7 @@ export class WebSocketService {
 						clients.delete(ws);
 					}
 					this.#socketClients.get(decoded.sub).delete(ws);
+					this.#socketAdminClients.get(decoded.sub)?.delete(ws);
 					console.log("Client disconnected:", decoded.sub);
 				});
 			});
@@ -102,6 +114,57 @@ export class WebSocketService {
 
 		DeviceModel.on("OnlineStateUpdate", ({ id, online }) => {
 			this.#sendDeviceMessageToFrontend(id, "update device onlineState", online);
+		});
+
+		RoomModel.on("allRooms", (rooms) => {
+			const clients = this.#socketClients.values();
+			for (const set of clients) {
+				for (const ws of set) {
+					if (ws.readyState === WebSocket.OPEN) {
+						ws.send(JSON.stringify({ type: "rooms", payload: { rooms } }));
+					}
+				}
+			}
+		});
+
+		DeviceModel.on("deviceChangeAdmin", (devices) => {
+			const clients = this.#socketAdminClients.values();
+			for (const set of clients) {
+				for (const ws of set) {
+					if (ws.readyState === WebSocket.OPEN) {
+						ws.send(JSON.stringify({ type: "device info", payload: { devices } }));
+					}
+				}
+			}
+		});
+
+		DeviceModel.on("deviceChanges", async (users) => {
+			for (const user of users) {
+				console.log("user id", user);
+				const wsclients = this.#socketClients.get(user.id);
+				console.log("user", user, wsclients, this.#socketClients);
+				if (!wsclients) {
+					continue;
+				}
+				const deviceIds = await UserDevicesModel.getDevicesByUser(user.id);
+				const devices = await DeviceModel.getDevicesByIDs(deviceIds);
+				for (const ws of wsclients) {
+					if (ws.readyState === WebSocket.OPEN) {
+						ws.send(JSON.stringify({ type: "inital devices", payload: { devices } }));
+					}
+				}
+			}
+		});
+
+		UserModel.on("users", (users) => {
+			const clients = this.#socketAdminClients.values();
+			for (const set of clients) {
+				for (const ws of set) {
+					if (ws.readyState === WebSocket.OPEN) {
+						ws.send(JSON.stringify({ type: "users", payload: { users } }));
+					}
+				}
+			}
 		});
 	}
 

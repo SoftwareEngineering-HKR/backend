@@ -1,11 +1,12 @@
 import bcrypt from "bcrypt";
 import dbs from "../service/DatabaseService.js";
+import { EventEmitter } from "node:events";
 
 /**
  * Model for the User table
  *
  */
-class UserModel {
+class UserModel extends EventEmitter {
 	/**
 	 * Hash the password submitted by the user
 	 *
@@ -121,6 +122,9 @@ class UserModel {
 		arg = [username, hashedPassword, type];
 		const result = await dbs.query(sql, arg);
 		const user = await this.getUserById(result[0].id);
+		const users = await this.getAllUsers();
+		this.emit("users", users);
+
 		return user;
 	}
 
@@ -174,6 +178,8 @@ class UserModel {
 		if (result.length === 0) {
 			throw new Error("Unable to delete user.");
 		}
+		const users = await this.getAllUsers();
+		this.emit("users", users);
 		return result.length > 0;
 	}
 	/** Login a user
@@ -210,6 +216,8 @@ class UserModel {
 		if (result.length === 0) {
 			throw new Error("Wrong username or user already have desired role.");
 		}
+		const users = await this.getAllUsers();
+		this.emit("users", users);
 		return result.length > 0;
 	}
 }

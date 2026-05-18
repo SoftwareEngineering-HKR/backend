@@ -67,13 +67,7 @@ export class NetworkDiscoveryService {
 
 		// console.debug("Discovered device at IP:", rinfo.address);
 
-		NetworkDiscoveryService.#server.send(
-			"DiscoveryResponse;",
-			0,
-			18,
-			rinfo.port,
-			rinfo.address,
-		);
+		NetworkDiscoveryService.#server.send("DiscoveryResponse;", 0, 18, rinfo.port, rinfo.address);
 	}
 
 	/**

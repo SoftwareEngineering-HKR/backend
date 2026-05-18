@@ -1,11 +1,12 @@
 //Imports goes here
 import dbs from "../service/DatabaseService.js";
 import DeviceModel from "./DeviceModel.js";
+import { EventEmitter } from "node:events";
 /**
  * Model for the room
  *
  */
-class RoomModel {
+class RoomModel extends EventEmitter {
 	/**
 	 * Gets the name of the room
 	 * @param {string} id - UUID to identify the room
@@ -53,6 +54,8 @@ class RoomModel {
 		if (!row) {
 			throw new Error("Error adding the room.");
 		}
+		const res = await this.getAllRooms();
+		this.emit("allRooms", res);
 		return { id: row.id, name: row.name };
 	}
 
@@ -69,6 +72,8 @@ class RoomModel {
 		if (result.length == 0) {
 			throw "no rooms";
 		}
+		const res = await this.getAllRooms();
+		this.emit("allRooms", res);
 		return result.length > 0;
 	}
 
@@ -80,16 +85,28 @@ class RoomModel {
 
 	async deleteRoom(id) {
 		const client = await dbs.db.connect();
+		let deviceIds;
 		try {
 			await client.query("BEGIN");
 
-			await DeviceModel.deleteDeviceRoomID(id, client);
+			deviceIds = await DeviceModel.deleteDeviceRoomID(id, client);
 
 			const deleted = await client.query("DELETE FROM rooms WHERE id = $1 RETURNING id", [id]);
 			await client.query("COMMIT");
 			if (deleted.rowCount == 0) {
 				throw "no rooms";
 			}
+			const res = await this.getAllRooms();
+			this.emit("allRooms", res);
+
+			const devices = await DeviceModel.getAllDevices();
+			DeviceModel.emit("deviceChangeAdmin", devices);
+			const users = new Set();
+			devices
+				.filter((device) => deviceIds.includes(device.id))
+				.forEach((device) => device.users?.forEach((deviceUser) => users.add(deviceUser)));
+
+			DeviceModel.emit("deviceChanges", users);
 			return deleted.rowCount > 0;
 		} catch (e) {
 			await client.query("ROLLBACK");

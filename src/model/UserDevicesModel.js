@@ -37,6 +37,8 @@ class UserDeviceModel extends EventEmitter {
 		const result = await dbs.query(sql, args);
 		const devices = await DeviceModel.getDevicesByIDs([deviceId]);
 		const device = devices[0];
+		const allDevices = await DeviceModel.getAllDevices();
+		DeviceModel.emit("deviceChangeAdmin", allDevices);
 		if (result.length > 0) {
 			this.emit("addedUserToID", { userID, device });
 			return true;
@@ -62,6 +64,8 @@ class UserDeviceModel extends EventEmitter {
 		} else {
 			this.emit("deletedUserFromDevice", { userID, device });
 		}
+		const allDevices = await DeviceModel.getAllDevices();
+		DeviceModel.emit("deviceChangeAdmin", allDevices);
 		return result.length > 0;
 	}
 }
