@@ -73,6 +73,16 @@ class RoomModel extends EventEmitter {
 			throw "no rooms";
 		}
 		const res = await this.getAllRooms();
+		const devices = await DeviceModel.getAllDevices();
+		DeviceModel.emit("deviceChangeAdmin", devices);
+
+		const users = new Set();
+		devices
+			.filter((device) => device.room == name)
+			.forEach((device) => device.users?.forEach((deviceUser) => users.add(deviceUser)));
+
+		DeviceModel.emit("deviceChanges", users);
+
 		this.emit("allRooms", res);
 		return result.length > 0;
 	}
@@ -94,7 +104,7 @@ class RoomModel extends EventEmitter {
 			const deleted = await client.query("DELETE FROM rooms WHERE id = $1 RETURNING id", [id]);
 			await client.query("COMMIT");
 			if (deleted.rowCount == 0) {
-				throw "no rooms";
+				throw new Error("no rooms");
 			}
 			const res = await this.getAllRooms();
 			this.emit("allRooms", res);

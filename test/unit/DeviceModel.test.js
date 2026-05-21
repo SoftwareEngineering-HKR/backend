@@ -137,6 +137,8 @@ describe("DeviceModel", function() {
 
     it("updateDevice - if a device gets properly updated", async()=>  {
         querystub = sinon.stub(DatabaseService, "query");
+        devicestub = sinon.stub(DeviceModel, "getAllDevices");
+        devicestub.resolves([{id: "1", name: "name1", description: "newDescription"}])
         querystub.resolves({length: 1});
 
         emitstub = sinon.stub(DeviceModel, "emit");
@@ -145,13 +147,14 @@ describe("DeviceModel", function() {
 
         expect(result).to.equal(true);
         expect(querystub.firstCall).to.match(/UPDATE devices SET/i);
-        expect(emitstub.calledOnceWithExactly("updateDevice", {id: "1", name: "name", description: "description"})).to.be.true;
+        expect(emitstub.calledWithExactly("updateDevice", {id: '1', name: 'name', description: 'description'})).to.be.true;
     });
 
     it("deleteDevice - if a device gets deleted", async()=>  {
         querystub = sinon.stub(DatabaseService, "query");
         querystub.resolves({length: 1});
-
+        devicestub = sinon.stub(DeviceModel, "getAllDevices");
+        devicestub.resolves([{id: "1", name: "name1", description: "newDescription"}])
         const result = await DeviceModel.deleteDevice("1");
 
         expect(result).to.equal(true);

@@ -150,7 +150,7 @@ class DeviceModel extends EventEmitter {
 			id_room,
 		]);
 
-		const updatedDeviceIds = result.rows.map((row) => row.id);
+		const updatedDeviceIds = result?.rows?.map((row) => row.id);
 
 		return updatedDeviceIds;
 	}

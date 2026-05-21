@@ -139,6 +139,7 @@ export class WebSocketService {
 		});
 
 		DeviceModel.on("deviceChanges", async (users) => {
+			if (!users) return;
 			for (const user of users) {
 				console.log("user id", user);
 				const wsclients = this.#socketClients.get(user.id);
